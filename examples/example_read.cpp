@@ -7,23 +7,25 @@
 #include <stdio.h>
 #include <string.h>
 
-static const char* lyric_format_string(lyric_format_t format) {
+using namespace dmusicpak;
+
+static const char* lyric_format_string(LyricFormat format) {
     switch (format) {
-        case LYRIC_FORMAT_LRC_ESLYRIC: return "LRC (ESLyric)";
-        case LYRIC_FORMAT_LRC_WORD_BY_WORD: return "LRC (Word-by-Word)";
-        case LYRIC_FORMAT_LRC_LINE_BY_LINE: return "LRC (Line-by-Line)";
-        case LYRIC_FORMAT_SRT: return "SRT";
-        case LYRIC_FORMAT_ASS: return "ASS";
+        case LyricFormat::LRC_ESLYRIC: return "LRC (ESLyric)";
+        case LyricFormat::LRC_WORD_BY_WORD: return "LRC (Word-by-Word)";
+        case LyricFormat::LRC_LINE_BY_LINE: return "LRC (Line-by-Line)";
+        case LyricFormat::SRT: return "SRT";
+        case LyricFormat::ASS: return "ASS";
         default: return "Unknown";
     }
 }
 
-static const char* cover_format_string(cover_format_t format) {
+static const char* cover_format_string(CoverFormat format) {
     switch (format) {
-        case COVER_FORMAT_JPEG: return "JPEG";
-        case COVER_FORMAT_PNG: return "PNG";
-        case COVER_FORMAT_WEBP: return "WebP";
-        case COVER_FORMAT_BMP: return "BMP";
+        case CoverFormat::JPEG: return "JPEG";
+        case CoverFormat::PNG: return "PNG";
+        case CoverFormat::WEBP: return "WebP";
+        case CoverFormat::BMP: return "BMP";
         default: return "Unknown";
     }
 }
@@ -38,22 +40,22 @@ int main(int argc, char* argv[]) {
 
     printf("DMusicPak Read Example\n");
     printf("======================\n\n");
-    printf("Library Version: %s\n", dmusicpak_version());
+    printf("Library Version: %s\n", version());
     printf("Reading file: %s\n\n", input_file);
 
     /* Load package */
-    dmusicpak_package_t* package = dmusicpak_load(input_file);
+    Package* package = load(input_file);
     if (!package) {
         fprintf(stderr, "Error: Failed to load package\n");
         return 1;
     }
 
-    printf("✓ Package loaded successfully\n\n");
+    printf("[OK] Package loaded successfully\n\n");
 
     /* Read metadata */
-    dmusicpak_metadata_t metadata = {0};
-    dmusicpak_error_t result = dmusicpak_get_metadata(package, &metadata);
-    if (result == DMUSICPAK_OK) {
+    Metadata metadata = {0};
+    Error result = get_metadata(package, &metadata);
+    if (result == Error::OK) {
         printf("=== METADATA ===\n");
         if (metadata.title) printf("Title:       %s\n", metadata.title);
         if (metadata.artist) printf("Artist:      %s\n", metadata.artist);
@@ -68,15 +70,15 @@ int main(int argc, char* argv[]) {
         printf("Channels:    %u\n", metadata.channels);
         printf("\n");
 
-        dmusicpak_free_metadata(&metadata);
+        free_metadata(&metadata);
     } else {
         printf("No metadata found\n\n");
     }
 
     /* Read lyrics */
-    dmusicpak_lyrics_t lyrics = {0};
-    result = dmusicpak_get_lyrics(package, &lyrics);
-    if (result == DMUSICPAK_OK) {
+    Lyrics lyrics = {};
+    result = get_lyrics(package, &lyrics);
+    if (result == Error::OK) {
         printf("=== LYRICS ===\n");
         printf("Format: %s\n", lyric_format_string(lyrics.format));
         printf("Size:   %zu bytes\n", lyrics.size);
@@ -92,15 +94,15 @@ int main(int argc, char* argv[]) {
         }
         printf("\n\n");
 
-        dmusicpak_free_lyrics(&lyrics);
+        free_lyrics(&lyrics);
     } else {
         printf("No lyrics found\n\n");
     }
 
     /* Read audio */
-    dmusicpak_audio_t audio = {0};
-    result = dmusicpak_get_audio(package, &audio);
-    if (result == DMUSICPAK_OK) {
+    Audio audio = {0};
+    result = get_audio(package, &audio);
+    if (result == Error::OK) {
         printf("=== AUDIO ===\n");
         if (audio.source_filename) {
             printf("Source File: %s\n", audio.source_filename);
@@ -114,15 +116,15 @@ int main(int argc, char* argv[]) {
         }
         printf("\n\n");
 
-        dmusicpak_free_audio(&audio);
+        free_audio(&audio);
     } else {
         printf("No audio found\n\n");
     }
 
     /* Read cover */
-    dmusicpak_cover_t cover = {0};
-    result = dmusicpak_get_cover(package, &cover);
-    if (result == DMUSICPAK_OK) {
+    Cover cover = {};
+    result = get_cover(package, &cover);
+    if (result == Error::OK) {
         printf("=== COVER IMAGE ===\n");
         printf("Format:     %s\n", cover_format_string(cover.format));
         printf("Dimensions: %ux%u\n", cover.width, cover.height);
@@ -135,15 +137,15 @@ int main(int argc, char* argv[]) {
         }
         printf("\n\n");
 
-        dmusicpak_free_cover(&cover);
+        free_cover(&cover);
     } else {
         printf("No cover image found\n\n");
     }
 
     /* Clean up */
-    dmusicpak_free(package);
+    free(package);
 
-    printf("✓ Package closed successfully\n");
+    printf("[OK] Package closed successfully\n");
 
     return 0;
 }

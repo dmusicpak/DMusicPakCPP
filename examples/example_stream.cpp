@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
+using namespace dmusicpak;
+
 /* Streaming callback function */
 static size_t stream_callback(void* buffer, size_t size, size_t nmemb, void* userdata) {
     FILE* output = (FILE*)userdata;
@@ -36,24 +38,24 @@ int main(int argc, char* argv[]) {
 
     printf("DMusicPak Stream Example\n");
     printf("========================\n\n");
-    printf("Library Version: %s\n", dmusicpak_version());
+    printf("Library Version: %s\n", version());
     printf("Input file:  %s\n", input_file);
     printf("Output file: %s\n\n", output_file);
 
     /* Load package */
-    dmusicpak_package_t* package = dmusicpak_load(input_file);
+    Package* package = load(input_file);
     if (!package) {
         fprintf(stderr, "Error: Failed to load package\n");
         return 1;
     }
 
-    printf("✓ Package loaded successfully\n");
+    printf("[OK] Package loaded successfully\n");
 
     /* Open output file */
     FILE* output = fopen(output_file, "wb");
     if (!output) {
         fprintf(stderr, "Error: Failed to open output file\n");
-        dmusicpak_free(package);
+        free(package);
         return 1;
     }
 
@@ -61,15 +63,15 @@ int main(int argc, char* argv[]) {
     printf("\nMethod 1: Streaming with callback\n");
     printf("----------------------------------\n");
 
-    dmusicpak_error_t result = dmusicpak_stream_audio(package, stream_callback, output);
-    if (result != DMUSICPAK_OK) {
-        fprintf(stderr, "\nError streaming audio: %s\n", dmusicpak_error_string(result));
+    Error result = stream_audio(package, stream_callback, output);
+    if (result != Error::OK) {
+        fprintf(stderr, "\nError streaming audio: %s\n", error_string(result));
         fclose(output);
-        dmusicpak_free(package);
+        free(package);
         return 1;
     }
 
-    printf("\n✓ Streaming completed successfully\n\n");
+    printf("\n[OK] Streaming completed successfully\n\n");
     fclose(output);
 
     /* Method 2: Manual chunk reading */
@@ -79,7 +81,7 @@ int main(int argc, char* argv[]) {
     FILE* output2 = fopen("output_chunks.raw", "wb");
     if (!output2) {
         fprintf(stderr, "Error: Failed to open output file for chunks\n");
-        dmusicpak_free(package);
+        free(package);
         return 1;
     }
 
@@ -89,7 +91,7 @@ int main(int argc, char* argv[]) {
     size_t total_read = 0;
 
     while (1) {
-        int64_t bytes_read = dmusicpak_get_audio_chunk(package, offset, chunk_size, buffer);
+        int64_t bytes_read = get_audio_chunk(package, offset, chunk_size, buffer);
         if (bytes_read <= 0) break;
 
         fwrite(buffer, 1, bytes_read, output2);
@@ -100,26 +102,26 @@ int main(int argc, char* argv[]) {
         fflush(stdout);
     }
 
-    printf("\n✓ Chunk reading completed: %zu bytes\n", total_read);
+    printf("\n[OK] Chunk reading completed: %zu bytes\n", total_read);
     fclose(output2);
 
     /* Display audio info */
-    dmusicpak_metadata_t metadata = {0};
-    result = dmusicpak_get_metadata(package, &metadata);
-    if (result == DMUSICPAK_OK) {
+    Metadata metadata = {0};
+    result = get_metadata(package, &metadata);
+    if (result == Error::OK) {
         printf("\nAudio Information:\n");
         printf("  Duration:    %.2f seconds\n", metadata.duration_ms / 1000.0);
         printf("  Bitrate:     %u kbps\n", metadata.bitrate);
         printf("  Sample Rate: %u Hz\n", metadata.sample_rate);
         printf("  Channels:    %u\n", metadata.channels);
 
-        dmusicpak_free_metadata(&metadata);
+        free_metadata(&metadata);
     }
 
     /* Clean up */
-    dmusicpak_free(package);
+    free(package);
 
-    printf("\n✓ Streaming example completed\n");
+    printf("\n[OK] Streaming example completed\n");
     printf("\nOutput files created:\n");
     printf("  - %s (callback method)\n", output_file);
     printf("  - output_chunks.raw (chunk method)\n");

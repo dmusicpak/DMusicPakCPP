@@ -11,6 +11,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 option(BUILD_EXAMPLES "Build example programs" ON)
 option(BUILD_TESTS "Build test programs" OFF)
+option(ENABLE_NETWORK "Enable network streaming support (requires libcurl)" OFF)
 
 # Set output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -23,14 +24,77 @@ set(DMUSICPAK_SOURCES
         src/io.cpp
 )
 
+# Network streaming support (optional)
+if(ENABLE_NETWORK)
+    find_package(CURL QUIET)
+    if(NOT CURL_FOUND)
+        # Try alternative method
+        find_library(CURL_LIBRARIES
+            NAMES curl libcurl
+            PATHS
+                /usr/lib
+                /usr/local/lib
+                /opt/lib
+        )
+        find_path(CURL_INCLUDE_DIRS
+            NAMES curl/curl.h
+            PATHS
+                /usr/include
+                /usr/local/include
+                /opt/include
+        )
+        if(CURL_LIBRARIES AND CURL_INCLUDE_DIRS)
+            set(CURL_FOUND TRUE)
+        endif()
+    endif()
+    
+    if(CURL_FOUND)
+        list(APPEND DMUSICPAK_SOURCES src/network.cpp)
+        add_definitions(-DDMUSICPAK_ENABLE_NETWORK)
+        message(STATUS "Network streaming enabled (libcurl found)")
+    else()
+        message(WARNING "libcurl not found, network support disabled")
+        set(ENABLE_NETWORK OFF)
+    endif()
+endif()
+
 set(DMUSICPAK_HEADERS
         include/dmusicpak/dmusicpak.h
 )
+
+# Windows DLL version resource
+if(WIN32 AND BUILD_SHARED_LIBS)
+    # Configure version information
+    set(DMUSICPAK_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+    set(DMUSICPAK_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+    set(DMUSICPAK_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+    set(DMUSICPAK_VERSION_STRING "${PROJECT_VERSION}")
+    set(DMUSICPAK_COMPANY_NAME "DMusicPak Project")
+    set(DMUSICPAK_PRODUCT_NAME "DMusicPak")
+    set(DMUSICPAK_FILE_DESCRIPTION "DMusicPak - Cross-platform Music Package Library")
+    set(DMUSICPAK_COPYRIGHT "Copyright (C) 2025 DMusicPak Project")
+    
+    # Configure resource file
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/dmusicpak.rc.in
+        ${CMAKE_CURRENT_BINARY_DIR}/dmusicpak.rc
+        @ONLY
+    )
+    
+    # Add resource file to sources
+    list(APPEND DMUSICPAK_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/dmusicpak.rc)
+endif()
 
 # Create library
 if(BUILD_SHARED_LIBS)
     add_library(dmusicpak SHARED ${DMUSICPAK_SOURCES} ${DMUSICPAK_HEADERS})
     target_compile_definitions(dmusicpak PRIVATE DMUSICPAK_EXPORTS)
+    
+    # Link libcurl if network support is enabled
+    if(ENABLE_NETWORK AND CURL_FOUND)
+        target_link_libraries(dmusicpak PRIVATE ${CURL_LIBRARIES})
+        target_include_directories(dmusicpak PRIVATE ${CURL_INCLUDE_DIRS})
+    endif()
 
     # Set version information
     set_target_properties(dmusicpak PROPERTIES
@@ -38,15 +102,30 @@ if(BUILD_SHARED_LIBS)
             SOVERSION ${PROJECT_VERSION_MAJOR}
     )
 
-    # Windows DLL naming
+    # Windows DLL naming and import library
     if(WIN32)
         set_target_properties(dmusicpak PROPERTIES
                 OUTPUT_NAME "dmusicpak"
                 PREFIX ""
         )
+        # Explicitly set import library (.lib) output directory
+        # The import library is automatically generated when building a DLL with MSVC
+        set_target_properties(dmusicpak PROPERTIES
+                ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+                ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/lib/Debug"
+                ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/lib/Release"
+                ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}/lib/RelWithDebInfo"
+                ARCHIVE_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}/lib/MinSizeRel"
+        )
     endif()
 else()
     add_library(dmusicpak STATIC ${DMUSICPAK_SOURCES} ${DMUSICPAK_HEADERS})
+    
+    # Link libcurl if network support is enabled
+    if(ENABLE_NETWORK AND CURL_FOUND)
+        target_link_libraries(dmusicpak PRIVATE ${CURL_LIBRARIES})
+        target_include_directories(dmusicpak PRIVATE ${CURL_INCLUDE_DIRS})
+    endif()
 endif()
 
 # Include directories
@@ -70,13 +149,23 @@ endif()
 
 # Build examples
 if(BUILD_EXAMPLES)
-    add_subdirectory(examples)
+    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/examples/CMakeLists.txt)
+        add_subdirectory(examples)
+    else()
+        message(WARNING "Examples directory not found, disabling examples")
+        set(BUILD_EXAMPLES OFF)
+    endif()
 endif()
 
 # Build tests
 if(BUILD_TESTS)
     enable_testing()
-    add_subdirectory(tests)
+    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt)
+        add_subdirectory(tests)
+    else()
+        message(WARNING "Tests directory not found, disabling tests")
+        set(BUILD_TESTS OFF)
+    endif()
 endif()
 
 # Installation
@@ -128,5 +217,6 @@ message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "  Shared libs: ${BUILD_SHARED_LIBS}")
 message(STATUS "  Examples: ${BUILD_EXAMPLES}")
 message(STATUS "  Tests: ${BUILD_TESTS}")
+message(STATUS "  Network streaming: ${ENABLE_NETWORK}")
 message(STATUS "  Install prefix: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "")

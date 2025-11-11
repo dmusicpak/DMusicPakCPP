@@ -1,0 +1,32 @@
+#include <windows.h>
+
+// Version information resource
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     @DMUSICPAK_VERSION_MAJOR@,@DMUSICPAK_VERSION_MINOR@,@DMUSICPAK_VERSION_PATCH@,0
+PRODUCTVERSION  @DMUSICPAK_VERSION_MAJOR@,@DMUSICPAK_VERSION_MINOR@,@DMUSICPAK_VERSION_PATCH@,0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0x0L
+FILEOS          VOS__WINDOWS32
+FILETYPE        VFT_DLL
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"  // English (United States) - Unicode
+        BEGIN
+            VALUE "CompanyName",      "@DMUSICPAK_COMPANY_NAME@"
+            VALUE "FileDescription",  "@DMUSICPAK_FILE_DESCRIPTION@"
+            VALUE "FileVersion",      "@DMUSICPAK_VERSION_STRING@"
+            VALUE "InternalName",     "dmusicpak"
+            VALUE "LegalCopyright",   "@DMUSICPAK_COPYRIGHT@"
+            VALUE "OriginalFilename", "dmusicpak.dll"
+            VALUE "ProductName",      "@DMUSICPAK_PRODUCT_NAME@"
+            VALUE "ProductVersion",   "@DMUSICPAK_VERSION_STRING@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200  // English (United States) - Unicode
+    END
+END
+

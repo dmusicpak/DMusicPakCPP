@@ -44,6 +44,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Interactive build configuration menu for build scripts (build.sh and build.ps1)
+  - Vue CLI-style interactive menu with arrow key navigation
+  - Build type selection (Release/Debug/MinSizeRel/RelWithDebInfo)
+  - Feature toggles (network support, examples, tests)
+  - Library type selection (shared/static)
+  - Custom installation prefix configuration
+  - Configuration summary before building
+  - Automatic example program execution option
+  - Enhanced error handling and user feedback
+
+### Changed
+- Build scripts (build.sh and build.ps1) now provide interactive configuration
+- Improved build script user experience with colored output and clear prompts
+- Build scripts automatically detect available compilers and CMake generators
+
 ### Planned for 1.1.0
 - [ ] Compression support (zlib, lzma)
 - [ ] File validation tool

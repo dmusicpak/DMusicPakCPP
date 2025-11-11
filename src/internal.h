@@ -12,15 +12,14 @@
 #include <stddef.h>
 
 #ifdef __cplusplus
-extern "C" {
-#endif
+namespace dmusicpak {
 
     /* Internal package structure */
-    struct dmusicpak_package {
-        dmusicpak_metadata_t metadata;
-        dmusicpak_lyrics_t lyrics;
-        dmusicpak_audio_t audio;
-        dmusicpak_cover_t cover;
+    struct Package {
+        Metadata metadata;
+        Lyrics lyrics;
+        Audio audio;
+        Cover cover;
         int has_metadata;
         int has_lyrics;
         int has_audio;
@@ -35,8 +34,7 @@ extern "C" {
     uint32_t read_uint32_le(const uint8_t* buffer);
     uint16_t read_uint16_le(const uint8_t* buffer);
 
-#ifdef __cplusplus
-}
+} // namespace dmusicpak
 #endif
 
 #endif /* DMUSICPAK_INTERNAL_H */

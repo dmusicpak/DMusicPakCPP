@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+using namespace dmusicpak;
+
 /* File format constants */
 #define DMUSICPAK_MAGIC "DMPK"
 #define DMUSICPAK_VERSION 1
@@ -64,7 +66,7 @@ static size_t read_string(const uint8_t* buffer, char** str) {
 }
 
 /* Calculate metadata chunk size */
-static size_t calculate_metadata_size(const dmusicpak_metadata_t* metadata) {
+static size_t calculate_metadata_size(const Metadata* metadata) {
     size_t size = 0;
     size += 4 + (metadata->title ? strlen(metadata->title) : 0);
     size += 4 + (metadata->artist ? strlen(metadata->artist) : 0);
@@ -77,7 +79,7 @@ static size_t calculate_metadata_size(const dmusicpak_metadata_t* metadata) {
 }
 
 /* Write metadata chunk */
-static size_t write_metadata_chunk(uint8_t* buffer, const dmusicpak_metadata_t* metadata) {
+static size_t write_metadata_chunk(uint8_t* buffer, const Metadata* metadata) {
     size_t offset = 0;
 
     offset += write_string(buffer + offset, metadata->title);
@@ -100,7 +102,7 @@ static size_t write_metadata_chunk(uint8_t* buffer, const dmusicpak_metadata_t* 
 }
 
 /* Read metadata chunk */
-static size_t read_metadata_chunk(const uint8_t* buffer, dmusicpak_metadata_t* metadata) {
+static size_t read_metadata_chunk(const uint8_t* buffer, Metadata* metadata) {
     size_t offset = 0;
 
     offset += read_string(buffer + offset, &metadata->title);
@@ -122,29 +124,29 @@ static size_t read_metadata_chunk(const uint8_t* buffer, dmusicpak_metadata_t* m
     return offset;
 }
 
-dmusicpak_error_t dmusicpak_save(dmusicpak_package_t* package, const char* filename) {
-    if (!package || !filename) return DMUSICPAK_ERROR_INVALID_PARAM;
+Error dmusicpak::save(Package* package, const char* filename) {
+    if (!package || !filename) return Error::INVALID_PARAM;
 
     uint8_t* buffer = NULL;
     size_t size = 0;
-    dmusicpak_error_t result = dmusicpak_save_memory(package, &buffer, &size);
-    if (result != DMUSICPAK_OK) return result;
+    Error result = save_memory(package, &buffer, &size);
+    if (result != Error::OK) return result;
 
     FILE* file = fopen(filename, "wb");
     if (!file) {
-        free(buffer);
-        return DMUSICPAK_ERROR_FILE_NOT_FOUND;
+        ::free(buffer);
+        return Error::FILE_NOT_FOUND;
     }
 
     size_t written = fwrite(buffer, 1, size, file);
     fclose(file);
-    free(buffer);
+    ::free(buffer);
 
-    return (written == size) ? DMUSICPAK_OK : DMUSICPAK_ERROR_IO;
+    return (written == size) ? Error::OK : Error::IO;
 }
 
-dmusicpak_error_t dmusicpak_save_memory(dmusicpak_package_t* package, uint8_t** buffer, size_t* size) {
-    if (!package || !buffer || !size) return DMUSICPAK_ERROR_INVALID_PARAM;
+Error dmusicpak::save_memory(Package* package, uint8_t** buffer, size_t* size) {
+    if (!package || !buffer || !size) return Error::INVALID_PARAM;
 
     /* Calculate total size */
     size_t total_size = sizeof(file_header_t);
@@ -171,7 +173,7 @@ dmusicpak_error_t dmusicpak_save_memory(dmusicpak_package_t* package, uint8_t** 
 
     /* Allocate buffer */
     *buffer = (uint8_t*)malloc(total_size);
-    if (!*buffer) return DMUSICPAK_ERROR_MEMORY_ALLOC;
+    if (!*buffer) return Error::MEMORY_ALLOC;
 
     size_t offset = 0;
 
@@ -195,7 +197,7 @@ dmusicpak_error_t dmusicpak_save_memory(dmusicpak_package_t* package, uint8_t** 
     /* Write lyrics chunk */
     if (package->has_lyrics) {
         (*buffer)[offset++] = CHUNK_LYRICS;
-        uint32_t chunk_size = 4 + package->lyrics.size;
+        uint32_t chunk_size = 4 + (uint32_t)package->lyrics.size;
         write_uint32_le(*buffer + offset, chunk_size);
         offset += 4;
         write_uint32_le(*buffer + offset, (uint32_t)package->lyrics.format);
@@ -207,8 +209,8 @@ dmusicpak_error_t dmusicpak_save_memory(dmusicpak_package_t* package, uint8_t** 
     /* Write audio chunk */
     if (package->has_audio) {
         (*buffer)[offset++] = CHUNK_AUDIO;
-        uint32_t filename_len = package->audio.source_filename ? strlen(package->audio.source_filename) : 0;
-        uint32_t chunk_size = 4 + filename_len + package->audio.size;
+        uint32_t filename_len = package->audio.source_filename ? (uint32_t)strlen(package->audio.source_filename) : 0;
+        uint32_t chunk_size = 4 + filename_len + (uint32_t)package->audio.size;
         write_uint32_le(*buffer + offset, chunk_size);
         offset += 4;
         offset += write_string(*buffer + offset, package->audio.source_filename);
@@ -219,7 +221,7 @@ dmusicpak_error_t dmusicpak_save_memory(dmusicpak_package_t* package, uint8_t** 
     /* Write cover chunk */
     if (package->has_cover) {
         (*buffer)[offset++] = CHUNK_COVER;
-        uint32_t chunk_size = 4 + 4 + 4 + package->cover.size;
+        uint32_t chunk_size = 4 + 4 + 4 + (uint32_t)package->cover.size;
         write_uint32_le(*buffer + offset, chunk_size);
         offset += 4;
         write_uint32_le(*buffer + offset, (uint32_t)package->cover.format);
@@ -233,10 +235,10 @@ dmusicpak_error_t dmusicpak_save_memory(dmusicpak_package_t* package, uint8_t** 
     }
 
     *size = offset;
-    return DMUSICPAK_OK;
+    return Error::OK;
 }
 
-dmusicpak_package_t* dmusicpak_load(const char* filename) {
+Package* dmusicpak::load(const char* filename) {
     if (!filename) return NULL;
 
     FILE* file = fopen(filename, "rb");
@@ -263,17 +265,17 @@ dmusicpak_package_t* dmusicpak_load(const char* filename) {
     fclose(file);
 
     if (read != (size_t)file_size) {
-        free(buffer);
+        ::free(buffer);
         return NULL;
     }
 
-    dmusicpak_package_t* package = dmusicpak_load_memory(buffer, file_size);
-    free(buffer);
+    Package* package = load_memory(buffer, file_size);
+    ::free(buffer);
 
     return package;
 }
 
-dmusicpak_package_t* dmusicpak_load_memory(const uint8_t* data, size_t size) {
+Package* dmusicpak::load_memory(const uint8_t* data, size_t size) {
     if (!data || size < sizeof(file_header_t)) return NULL;
 
     /* Verify magic number */
@@ -288,7 +290,7 @@ dmusicpak_package_t* dmusicpak_load_memory(const uint8_t* data, size_t size) {
     uint32_t num_chunks = read_uint32_le(data + offset);
     offset += 4;
 
-    dmusicpak_package_t* package = dmusicpak_create();
+    Package* package = create();
     if (!package) return NULL;
 
     /* Read chunks */
@@ -308,7 +310,7 @@ dmusicpak_package_t* dmusicpak_load_memory(const uint8_t* data, size_t size) {
                 break;
 
             case CHUNK_LYRICS:
-                package->lyrics.format = (lyric_format_t)read_uint32_le(data + offset);
+                package->lyrics.format = (LyricFormat)read_uint32_le(data + offset);
                 package->lyrics.size = chunk_size - 4;
                 if (package->lyrics.size > 0) {
                     package->lyrics.data = (uint8_t*)malloc(package->lyrics.size);
@@ -334,7 +336,7 @@ dmusicpak_package_t* dmusicpak_load_memory(const uint8_t* data, size_t size) {
             }
 
             case CHUNK_COVER:
-                package->cover.format = (cover_format_t)read_uint32_le(data + offset);
+                package->cover.format = (CoverFormat)read_uint32_le(data + offset);
                 package->cover.width = read_uint32_le(data + offset + 4);
                 package->cover.height = read_uint32_le(data + offset + 8);
                 package->cover.size = chunk_size - 12;

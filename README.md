@@ -11,9 +11,10 @@
 - **Multiple Lyrics Formats**: Support for LRC (ESLyric, Word-by-Word, Line-by-Line), SRT, and ASS
 - **Image Formats**: JPEG, PNG, WebP, and BMP cover art support
 - **Streaming Support**: Built-in audio streaming capabilities for network playback
+- **Network Streaming**: Optional HTTP/HTTPS support for loading packages from URLs (requires libcurl)
 - **Cross-Platform**: Works on Windows, Linux, and macOS
 - **Easy-to-Use API**: Simple C API with C++ examples
-- **Lightweight**: Minimal dependencies, efficient binary format
+- **Lightweight**: Minimal dependencies (network support optional)
 - **CMake Build System**: Modern build system for easy integration
 
 ## 🚀 Installation
@@ -26,7 +27,9 @@ Download pre-built binaries from the [Releases](https://github.com/yourusername/
 
 See [QUICKSTART.md](QUICKSTART.md) for detailed build instructions.
 
-**Quick build:**
+**Interactive Build (Recommended):**
+
+The build scripts provide an interactive configuration menu similar to Vue CLI, allowing you to select features and options.
 
 Linux/macOS:
 ```bash
@@ -37,6 +40,32 @@ chmod +x build.sh
 Windows (PowerShell):
 ```powershell
 .\build.ps1
+```
+
+The interactive script will guide you through:
+- Build type selection (Release/Debug/MinSizeRel/RelWithDebInfo)
+- Network streaming support (requires libcurl)
+- Example programs
+- Test programs
+- Shared/Static library selection
+- Installation prefix
+
+**Manual Build:**
+
+If you prefer manual configuration:
+
+Linux/macOS:
+```bash
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DENABLE_NETWORK=ON
+cmake --build .
+```
+
+Windows (PowerShell):
+```powershell
+mkdir build; cd build
+cmake .. -G "Visual Studio 17 2022" -DENABLE_NETWORK=ON
+cmake --build . --config Release
 ```
 
 ## 🎯 Quick Start
@@ -108,6 +137,33 @@ size_t stream_callback(void* buffer, size_t size, size_t nmemb, void* userdata) 
 FILE* output = fopen("output.raw", "wb");
 dmusicpak_stream_audio(package, stream_callback, output);
 fclose(output);
+```
+
+### Network Streaming (Optional)
+
+```cpp
+#ifdef DMUSICPAK_ENABLE_NETWORK
+// Load package from URL
+dmusicpak::Package* package = dmusicpak::load_url("https://example.com/music.dmusicpak", 30000);
+if (package) {
+    // Use package as normal
+    dmusicpak::Metadata metadata = {0};
+    dmusicpak::get_metadata(package, &metadata);
+    printf("Title: %s\n", metadata.title);
+    
+    // Get audio chunk directly from URL (HTTP Range request)
+    uint8_t buffer[65536];
+    int64_t bytes = dmusicpak::get_audio_chunk_url(
+        "https://example.com/music.dmusicpak",
+        0,           // offset
+        65536,       // size
+        buffer,      // output buffer
+        30000        // timeout (ms)
+    );
+    
+    dmusicpak::free(package);
+}
+#endif
 ```
 
 ## 📦 File Format
@@ -183,6 +239,14 @@ int64_t dmusicpak_get_audio_chunk(dmusicpak_package_t* package,
                                    size_t offset, 
                                    size_t size, 
                                    uint8_t* buffer);
+
+#ifdef DMUSICPAK_ENABLE_NETWORK
+// Network streaming (requires libcurl)
+dmusicpak_package_t* dmusicpak_load_url(const char* url, uint32_t timeout_ms);
+dmusicpak_package_t* dmusicpak_load_url_stream(const char* url, uint32_t timeout_ms, size_t chunk_size);
+int64_t dmusicpak_get_audio_chunk_url(const char* url, size_t offset, size_t size, 
+                                       uint8_t* buffer, uint32_t timeout_ms);
+#endif
 ```
 
 ### Data Types

@@ -19,6 +19,8 @@
 #define CHUNK_AUDIO    0x03
 #define CHUNK_COVER    0x04
 
+using namespace dmusicpak;
+
 /* Helper function to duplicate string */
 static char* str_dup(const char* str) {
     if (!str) return NULL;
@@ -31,71 +33,72 @@ static char* str_dup(const char* str) {
 }
 
 /* Implement helper functions for endian conversion */
-void write_uint32_le(uint8_t* buffer, uint32_t value) {
+void dmusicpak::write_uint32_le(uint8_t* buffer, uint32_t value) {
     buffer[0] = (uint8_t)(value & 0xFF);
     buffer[1] = (uint8_t)((value >> 8) & 0xFF);
     buffer[2] = (uint8_t)((value >> 16) & 0xFF);
     buffer[3] = (uint8_t)((value >> 24) & 0xFF);
 }
 
-uint32_t read_uint32_le(const uint8_t* buffer) {
+uint32_t dmusicpak::read_uint32_le(const uint8_t* buffer) {
     return ((uint32_t)buffer[0]) |
            ((uint32_t)buffer[1] << 8) |
            ((uint32_t)buffer[2] << 16) |
            ((uint32_t)buffer[3] << 24);
 }
 
-void write_uint16_le(uint8_t* buffer, uint16_t value) {
+void dmusicpak::write_uint16_le(uint8_t* buffer, uint16_t value) {
     buffer[0] = (uint8_t)(value & 0xFF);
     buffer[1] = (uint8_t)((value >> 8) & 0xFF);
 }
 
-uint16_t read_uint16_le(const uint8_t* buffer) {
+uint16_t dmusicpak::read_uint16_le(const uint8_t* buffer) {
     return ((uint16_t)buffer[0]) | ((uint16_t)buffer[1] << 8);
 }
 
-const char* dmusicpak_version(void) {
+const char* dmusicpak::version() {
     return "1.0.1";
 }
 
-const char* dmusicpak_error_string(dmusicpak_error_t error) {
+const char* dmusicpak::error_string(Error error) {
     switch (error) {
-        case DMUSICPAK_OK: return "Success";
-        case DMUSICPAK_ERROR_INVALID_PARAM: return "Invalid parameter";
-        case DMUSICPAK_ERROR_FILE_NOT_FOUND: return "File not found";
-        case DMUSICPAK_ERROR_INVALID_FORMAT: return "Invalid format";
-        case DMUSICPAK_ERROR_MEMORY_ALLOC: return "Memory allocation failed";
-        case DMUSICPAK_ERROR_IO: return "I/O error";
-        case DMUSICPAK_ERROR_NOT_SUPPORTED: return "Not supported";
-        case DMUSICPAK_ERROR_CORRUPTED: return "File corrupted";
+        case Error::OK: return "Success";
+        case Error::INVALID_PARAM: return "Invalid parameter";
+        case Error::FILE_NOT_FOUND: return "File not found";
+        case Error::INVALID_FORMAT: return "Invalid format";
+        case Error::MEMORY_ALLOC: return "Memory allocation failed";
+        case Error::IO: return "I/O error";
+        case Error::NOT_SUPPORTED: return "Not supported";
+        case Error::CORRUPTED: return "File corrupted";
+        case Error::NETWORK: return "Network error";
         default: return "Unknown error";
     }
 }
 
-dmusicpak_package_t* dmusicpak_create(void) {
-    dmusicpak_package_t* package = (dmusicpak_package_t*)calloc(1, sizeof(dmusicpak_package_t));
+Package* dmusicpak::create() {
+    Package* package = (Package*)calloc(1, sizeof(Package));
     if (!package) return NULL;
 
-    memset(package, 0, sizeof(dmusicpak_package_t));
+    memset(package, 0, sizeof(Package));
     return package;
 }
 
-void dmusicpak_free(dmusicpak_package_t* package) {
+void dmusicpak::free(Package* package) {
     if (!package) return;
 
-    dmusicpak_free_metadata(&package->metadata);
-    dmusicpak_free_lyrics(&package->lyrics);
-    dmusicpak_free_audio(&package->audio);
-    dmusicpak_free_cover(&package->cover);
+    free_metadata(&package->metadata);
+    free_lyrics(&package->lyrics);
+    free_audio(&package->audio);
+    free_cover(&package->cover);
 
-    free(package);
+    ::free(package);
 }
 
-dmusicpak_error_t dmusicpak_set_metadata(dmusicpak_package_t* package, const dmusicpak_metadata_t* metadata) {
-    if (!package || !metadata) return DMUSICPAK_ERROR_INVALID_PARAM;
+Error dmusicpak::set_metadata(Package* package, const Metadata* metadata) {
+    if (!package || !metadata) return Error::INVALID_PARAM;
 
     /* Free existing metadata */
-    dmusicpak_free_metadata(&package->metadata);
+    free_metadata(&package->metadata);
 
     /* Copy strings */
     package->metadata.title = str_dup(metadata->title);
@@ -112,14 +115,14 @@ dmusicpak_error_t dmusicpak_set_metadata(dmusicpak_package_t* package, const dmu
     package->metadata.channels = metadata->channels;
 
     package->has_metadata = 1;
-    return DMUSICPAK_OK;
+    return Error::OK;
 }
 
-dmusicpak_error_t dmusicpak_get_metadata(dmusicpak_package_t* package, dmusicpak_metadata_t* metadata) {
-    if (!package || !metadata) return DMUSICPAK_ERROR_INVALID_PARAM;
-    if (!package->has_metadata) return DMUSICPAK_ERROR_NOT_SUPPORTED;
+Error dmusicpak::get_metadata(Package* package, Metadata* metadata) {
+    if (!package || !metadata) return Error::INVALID_PARAM;
+    if (!package->has_metadata) return Error::NOT_SUPPORTED;
 
-    memset(metadata, 0, sizeof(dmusicpak_metadata_t));
+    memset(metadata, 0, sizeof(Metadata));
 
     metadata->title = str_dup(package->metadata.title);
     metadata->artist = str_dup(package->metadata.artist);
@@ -132,85 +135,85 @@ dmusicpak_error_t dmusicpak_get_metadata(dmusicpak_package_t* package, dmusicpak
     metadata->sample_rate = package->metadata.sample_rate;
     metadata->channels = package->metadata.channels;
 
-    return DMUSICPAK_OK;
+    return Error::OK;
 }
 
-dmusicpak_error_t dmusicpak_set_lyrics(dmusicpak_package_t* package, const dmusicpak_lyrics_t* lyrics) {
-    if (!package || !lyrics) return DMUSICPAK_ERROR_INVALID_PARAM;
+Error dmusicpak::set_lyrics(Package* package, const Lyrics* lyrics) {
+    if (!package || !lyrics) return Error::INVALID_PARAM;
 
-    dmusicpak_free_lyrics(&package->lyrics);
+    free_lyrics(&package->lyrics);
 
     package->lyrics.format = lyrics->format;
     package->lyrics.size = lyrics->size;
 
     if (lyrics->data && lyrics->size > 0) {
         package->lyrics.data = (uint8_t*)malloc(lyrics->size);
-        if (!package->lyrics.data) return DMUSICPAK_ERROR_MEMORY_ALLOC;
+        if (!package->lyrics.data) return Error::MEMORY_ALLOC;
         memcpy(package->lyrics.data, lyrics->data, lyrics->size);
     }
 
     package->has_lyrics = 1;
-    return DMUSICPAK_OK;
+    return Error::OK;
 }
 
-dmusicpak_error_t dmusicpak_get_lyrics(dmusicpak_package_t* package, dmusicpak_lyrics_t* lyrics) {
-    if (!package || !lyrics) return DMUSICPAK_ERROR_INVALID_PARAM;
-    if (!package->has_lyrics) return DMUSICPAK_ERROR_NOT_SUPPORTED;
+Error dmusicpak::get_lyrics(Package* package, Lyrics* lyrics) {
+    if (!package || !lyrics) return Error::INVALID_PARAM;
+    if (!package->has_lyrics) return Error::NOT_SUPPORTED;
 
-    memset(lyrics, 0, sizeof(dmusicpak_lyrics_t));
+    memset(lyrics, 0, sizeof(Lyrics));
 
     lyrics->format = package->lyrics.format;
     lyrics->size = package->lyrics.size;
 
     if (package->lyrics.data && package->lyrics.size > 0) {
         lyrics->data = (uint8_t*)malloc(package->lyrics.size);
-        if (!lyrics->data) return DMUSICPAK_ERROR_MEMORY_ALLOC;
+        if (!lyrics->data) return Error::MEMORY_ALLOC;
         memcpy(lyrics->data, package->lyrics.data, package->lyrics.size);
     }
 
-    return DMUSICPAK_OK;
+    return Error::OK;
 }
 
-dmusicpak_error_t dmusicpak_set_audio(dmusicpak_package_t* package, const dmusicpak_audio_t* audio) {
-    if (!package || !audio) return DMUSICPAK_ERROR_INVALID_PARAM;
+Error dmusicpak::set_audio(Package* package, const Audio* audio) {
+    if (!package || !audio) return Error::INVALID_PARAM;
 
-    dmusicpak_free_audio(&package->audio);
+    free_audio(&package->audio);
 
     package->audio.source_filename = str_dup(audio->source_filename);
     package->audio.size = audio->size;
 
     if (audio->data && audio->size > 0) {
         package->audio.data = (uint8_t*)malloc(audio->size);
-        if (!package->audio.data) return DMUSICPAK_ERROR_MEMORY_ALLOC;
+        if (!package->audio.data) return Error::MEMORY_ALLOC;
         memcpy(package->audio.data, audio->data, audio->size);
     }
 
     package->has_audio = 1;
-    return DMUSICPAK_OK;
+    return Error::OK;
 }
 
-dmusicpak_error_t dmusicpak_get_audio(dmusicpak_package_t* package, dmusicpak_audio_t* audio) {
-    if (!package || !audio) return DMUSICPAK_ERROR_INVALID_PARAM;
-    if (!package->has_audio) return DMUSICPAK_ERROR_NOT_SUPPORTED;
+Error dmusicpak::get_audio(Package* package, Audio* audio) {
+    if (!package || !audio) return Error::INVALID_PARAM;
+    if (!package->has_audio) return Error::NOT_SUPPORTED;
 
-    memset(audio, 0, sizeof(dmusicpak_audio_t));
+    memset(audio, 0, sizeof(Audio));
 
     audio->source_filename = str_dup(package->audio.source_filename);
     audio->size = package->audio.size;
 
     if (package->audio.data && package->audio.size > 0) {
         audio->data = (uint8_t*)malloc(package->audio.size);
-        if (!audio->data) return DMUSICPAK_ERROR_MEMORY_ALLOC;
+        if (!audio->data) return Error::MEMORY_ALLOC;
         memcpy(audio->data, package->audio.data, package->audio.size);
     }
 
-    return DMUSICPAK_OK;
+    return Error::OK;
 }
 
-dmusicpak_error_t dmusicpak_set_cover(dmusicpak_package_t* package, const dmusicpak_cover_t* cover) {
-    if (!package || !cover) return DMUSICPAK_ERROR_INVALID_PARAM;
+Error dmusicpak::set_cover(Package* package, const Cover* cover) {
+    if (!package || !cover) return Error::INVALID_PARAM;
 
-    dmusicpak_free_cover(&package->cover);
+    free_cover(&package->cover);
 
     package->cover.format = cover->format;
     package->cover.size = cover->size;
@@ -219,19 +222,19 @@ dmusicpak_error_t dmusicpak_set_cover(dmusicpak_package_t* package, const dmusic
 
     if (cover->data && cover->size > 0) {
         package->cover.data = (uint8_t*)malloc(cover->size);
-        if (!package->cover.data) return DMUSICPAK_ERROR_MEMORY_ALLOC;
+        if (!package->cover.data) return Error::MEMORY_ALLOC;
         memcpy(package->cover.data, cover->data, cover->size);
     }
 
     package->has_cover = 1;
-    return DMUSICPAK_OK;
+    return Error::OK;
 }
 
-dmusicpak_error_t dmusicpak_get_cover(dmusicpak_package_t* package, dmusicpak_cover_t* cover) {
-    if (!package || !cover) return DMUSICPAK_ERROR_INVALID_PARAM;
-    if (!package->has_cover) return DMUSICPAK_ERROR_NOT_SUPPORTED;
+Error dmusicpak::get_cover(Package* package, Cover* cover) {
+    if (!package || !cover) return Error::INVALID_PARAM;
+    if (!package->has_cover) return Error::NOT_SUPPORTED;
 
-    memset(cover, 0, sizeof(dmusicpak_cover_t));
+    memset(cover, 0, sizeof(Cover));
 
     cover->format = package->cover.format;
     cover->size = package->cover.size;
@@ -240,20 +243,20 @@ dmusicpak_error_t dmusicpak_get_cover(dmusicpak_package_t* package, dmusicpak_co
 
     if (package->cover.data && package->cover.size > 0) {
         cover->data = (uint8_t*)malloc(package->cover.size);
-        if (!cover->data) return DMUSICPAK_ERROR_MEMORY_ALLOC;
+        if (!cover->data) return Error::MEMORY_ALLOC;
         memcpy(cover->data, package->cover.data, package->cover.size);
     }
 
-    return DMUSICPAK_OK;
+    return Error::OK;
 }
 
-dmusicpak_error_t dmusicpak_stream_audio(
-    dmusicpak_package_t* package,
-    dmusicpak_stream_callback_t callback,
+Error dmusicpak::stream_audio(
+    Package* package,
+    StreamCallback callback,
     void* userdata
 ) {
-    if (!package || !callback) return DMUSICPAK_ERROR_INVALID_PARAM;
-    if (!package->has_audio) return DMUSICPAK_ERROR_NOT_SUPPORTED;
+    if (!package || !callback) return Error::INVALID_PARAM;
+    if (!package->has_audio) return Error::NOT_SUPPORTED;
 
     const size_t chunk_size = 8192; /* 8KB chunks */
     size_t offset = 0;
@@ -270,11 +273,11 @@ dmusicpak_error_t dmusicpak_stream_audio(
         offset += written;
     }
 
-    return DMUSICPAK_OK;
+    return Error::OK;
 }
 
-int64_t dmusicpak_get_audio_chunk(
-    dmusicpak_package_t* package,
+int64_t dmusicpak::get_audio_chunk(
+    Package* package,
     size_t offset,
     size_t size,
     uint8_t* buffer
@@ -292,37 +295,37 @@ int64_t dmusicpak_get_audio_chunk(
     return (int64_t)to_read;
 }
 
-void dmusicpak_free_metadata(dmusicpak_metadata_t* metadata) {
+void dmusicpak::free_metadata(Metadata* metadata) {
     if (!metadata) return;
 
-    free(metadata->title);
-    free(metadata->artist);
-    free(metadata->album);
-    free(metadata->genre);
-    free(metadata->year);
-    free(metadata->comment);
+    ::free(metadata->title);
+    ::free(metadata->artist);
+    ::free(metadata->album);
+    ::free(metadata->genre);
+    ::free(metadata->year);
+    ::free(metadata->comment);
 
-    memset(metadata, 0, sizeof(dmusicpak_metadata_t));
+    memset(metadata, 0, sizeof(Metadata));
 }
 
-void dmusicpak_free_lyrics(dmusicpak_lyrics_t* lyrics) {
+void dmusicpak::free_lyrics(Lyrics* lyrics) {
     if (!lyrics) return;
 
-    free(lyrics->data);
-    memset(lyrics, 0, sizeof(dmusicpak_lyrics_t));
+    ::free(lyrics->data);
+    memset(lyrics, 0, sizeof(Lyrics));
 }
 
-void dmusicpak_free_audio(dmusicpak_audio_t* audio) {
+void dmusicpak::free_audio(Audio* audio) {
     if (!audio) return;
 
-    free(audio->source_filename);
-    free(audio->data);
-    memset(audio, 0, sizeof(dmusicpak_audio_t));
+    ::free(audio->source_filename);
+    ::free(audio->data);
+    memset(audio, 0, sizeof(Audio));
 }
 
-void dmusicpak_free_cover(dmusicpak_cover_t* cover) {
+void dmusicpak::free_cover(Cover* cover) {
     if (!cover) return;
 
-    free(cover->data);
-    memset(cover, 0, sizeof(dmusicpak_cover_t));
+    ::free(cover->data);
+    memset(cover, 0, sizeof(Cover));
 }

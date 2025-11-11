@@ -12,7 +12,20 @@ target_link_libraries(example_read PRIVATE dmusicpak)
 add_executable(example_stream example_stream.cpp)
 target_link_libraries(example_stream PRIVATE dmusicpak)
 
+# Network example (only if network support is enabled)
+if(ENABLE_NETWORK)
+    add_executable(example_network example_network.cpp)
+    target_link_libraries(example_network PRIVATE dmusicpak)
+    if(CURL_FOUND)
+        target_link_libraries(example_network PRIVATE ${CURL_LIBRARIES})
+    endif()
+endif()
+
 # Install examples (optional)
-install(TARGETS example_write example_read example_stream
+set(EXAMPLE_TARGETS example_write example_read example_stream)
+if(ENABLE_NETWORK)
+    list(APPEND EXAMPLE_TARGETS example_network)
+endif()
+install(TARGETS ${EXAMPLE_TARGETS}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/examples
 )

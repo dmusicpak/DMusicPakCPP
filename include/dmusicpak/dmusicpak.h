@@ -14,10 +14,6 @@
 #ifndef DMUSICPAK_H
 #define DMUSICPAK_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdint.h>
 #include <stddef.h>
 
@@ -37,39 +33,43 @@ extern "C" {
 #define DMUSICPAK_VERSION_MINOR 0
 #define DMUSICPAK_VERSION_PATCH 1
 
+#ifdef __cplusplus
+namespace dmusicpak {
+
 /* Error codes */
-typedef enum {
-    DMUSICPAK_OK = 0,
-    DMUSICPAK_ERROR_INVALID_PARAM = -1,
-    DMUSICPAK_ERROR_FILE_NOT_FOUND = -2,
-    DMUSICPAK_ERROR_INVALID_FORMAT = -3,
-    DMUSICPAK_ERROR_MEMORY_ALLOC = -4,
-    DMUSICPAK_ERROR_IO = -5,
-    DMUSICPAK_ERROR_NOT_SUPPORTED = -6,
-    DMUSICPAK_ERROR_CORRUPTED = -7
-} dmusicpak_error_t;
+enum class Error {
+    OK = 0,
+    INVALID_PARAM = -1,
+    FILE_NOT_FOUND = -2,
+    INVALID_FORMAT = -3,
+    MEMORY_ALLOC = -4,
+    IO = -5,
+    NOT_SUPPORTED = -6,
+    CORRUPTED = -7,
+    NETWORK = -8              /* Network error (when network support enabled) */
+};
 
 /* Lyrics format types */
-typedef enum {
-    LYRIC_FORMAT_NONE = 0,
-    LYRIC_FORMAT_LRC_ESLYRIC = 1,      /* Enhanced LRC */
-    LYRIC_FORMAT_LRC_WORD_BY_WORD = 2, /* Word-by-word timing */
-    LYRIC_FORMAT_LRC_LINE_BY_LINE = 3, /* Line-by-line timing */
-    LYRIC_FORMAT_SRT = 4,               /* SubRip format */
-    LYRIC_FORMAT_ASS = 5                /* Advanced SubStation Alpha */
-} lyric_format_t;
+enum class LyricFormat {
+    NONE = 0,
+    LRC_ESLYRIC = 1,      /* Enhanced LRC */
+    LRC_WORD_BY_WORD = 2, /* Word-by-word timing */
+    LRC_LINE_BY_LINE = 3, /* Line-by-line timing */
+    SRT = 4,               /* SubRip format */
+    ASS = 5                /* Advanced SubStation Alpha */
+};
 
 /* Cover image format types */
-typedef enum {
-    COVER_FORMAT_NONE = 0,
-    COVER_FORMAT_JPEG = 1,
-    COVER_FORMAT_PNG = 2,
-    COVER_FORMAT_WEBP = 3,
-    COVER_FORMAT_BMP = 4
-} cover_format_t;
+enum class CoverFormat {
+    NONE = 0,
+    JPEG = 1,
+    PNG = 2,
+    WEBP = 3,
+    BMP = 4
+};
 
 /* Music metadata structure */
-typedef struct {
+struct Metadata {
     char* title;           /* Song title */
     char* artist;          /* Artist name */
     char* album;           /* Album name */
@@ -80,36 +80,36 @@ typedef struct {
     uint32_t bitrate;      /* Bitrate in kbps */
     uint32_t sample_rate;  /* Sample rate in Hz */
     uint16_t channels;     /* Number of audio channels */
-} dmusicpak_metadata_t;
+};
 
 /* Lyrics data structure */
-typedef struct {
-    lyric_format_t format;
+struct Lyrics {
+    LyricFormat format;
     uint8_t* data;
     size_t size;
-} dmusicpak_lyrics_t;
+};
 
 /* Audio data structure */
-typedef struct {
+struct Audio {
     char* source_filename; /* Original filename */
     uint8_t* data;
     size_t size;
-} dmusicpak_audio_t;
+};
 
 /* Cover image structure */
-typedef struct {
-    cover_format_t format;
+struct Cover {
+    CoverFormat format;
     uint8_t* data;
     size_t size;
     uint32_t width;
     uint32_t height;
-} dmusicpak_cover_t;
+};
 
 /* Main package structure */
-typedef struct dmusicpak_package dmusicpak_package_t;
+struct Package;
 
 /* Streaming callback function type */
-typedef size_t (*dmusicpak_stream_callback_t)(
+using StreamCallback = size_t (*)(
     void* buffer,
     size_t size,
     size_t nmemb,
@@ -120,27 +120,27 @@ typedef size_t (*dmusicpak_stream_callback_t)(
  * @brief Get library version string
  * @return Version string (e.g., "1.0.0")
  */
-DMUSICPAK_API const char* dmusicpak_version(void);
+DMUSICPAK_API const char* version();
 
 /**
  * @brief Get error message for error code
  * @param error Error code
  * @return Error message string
  */
-DMUSICPAK_API const char* dmusicpak_error_string(dmusicpak_error_t error);
+DMUSICPAK_API const char* error_string(Error error);
 
 /**
  * @brief Create a new empty package
  * @return Pointer to new package or NULL on error
  */
-DMUSICPAK_API dmusicpak_package_t* dmusicpak_create(void);
+DMUSICPAK_API Package* create();
 
 /**
  * @brief Load package from file
  * @param filename Path to .dmusicpak file
  * @return Pointer to loaded package or NULL on error
  */
-DMUSICPAK_API dmusicpak_package_t* dmusicpak_load(const char* filename);
+DMUSICPAK_API Package* load(const char* filename);
 
 /**
  * @brief Load package from memory
@@ -148,7 +148,46 @@ DMUSICPAK_API dmusicpak_package_t* dmusicpak_load(const char* filename);
  * @param size Size of data
  * @return Pointer to loaded package or NULL on error
  */
-DMUSICPAK_API dmusicpak_package_t* dmusicpak_load_memory(const uint8_t* data, size_t size);
+DMUSICPAK_API Package* load_memory(const uint8_t* data, size_t size);
+
+#ifdef DMUSICPAK_ENABLE_NETWORK
+/**
+ * @brief Load package from URL (HTTP/HTTPS)
+ * Downloads entire file into memory before parsing
+ * @param url URL to load from (must be http:// or https://)
+ * @param timeout_ms Timeout in milliseconds (0 for default: 30000ms)
+ * @return Pointer to loaded package or NULL on error
+ */
+DMUSICPAK_API Package* load_url(const char* url, uint32_t timeout_ms);
+
+/**
+ * @brief Load package from URL with streaming support
+ * Streams data and parses incrementally (more efficient for large files)
+ * @param url URL to load from (must be http:// or https://)
+ * @param timeout_ms Timeout in milliseconds (0 for default: 30000ms)
+ * @param chunk_size Streaming chunk size in bytes (0 for default: 64KB)
+ * @return Pointer to loaded package or NULL on error
+ */
+DMUSICPAK_API Package* load_url_stream(const char* url, uint32_t timeout_ms, size_t chunk_size);
+
+/**
+ * @brief Get audio chunk from URL using HTTP Range request
+ * Useful for streaming audio without downloading entire file
+ * @param url URL to load from
+ * @param offset Byte offset to start reading from
+ * @param size Number of bytes to read
+ * @param buffer Output buffer (must be at least 'size' bytes)
+ * @param timeout_ms Timeout in milliseconds (0 for default: 30000ms)
+ * @return Number of bytes read, or -1 on error
+ */
+DMUSICPAK_API int64_t get_audio_chunk_url(
+    const char* url,
+    size_t offset,
+    size_t size,
+    uint8_t* buffer,
+    uint32_t timeout_ms
+);
+#endif /* DMUSICPAK_ENABLE_NETWORK */
 
 /**
  * @brief Save package to file
@@ -156,7 +195,7 @@ DMUSICPAK_API dmusicpak_package_t* dmusicpak_load_memory(const uint8_t* data, si
  * @param filename Output filename
  * @return Error code
  */
-DMUSICPAK_API dmusicpak_error_t dmusicpak_save(dmusicpak_package_t* package, const char* filename);
+DMUSICPAK_API Error save(Package* package, const char* filename);
 
 /**
  * @brief Save package to memory buffer
@@ -165,13 +204,13 @@ DMUSICPAK_API dmusicpak_error_t dmusicpak_save(dmusicpak_package_t* package, con
  * @param size Output size
  * @return Error code
  */
-DMUSICPAK_API dmusicpak_error_t dmusicpak_save_memory(dmusicpak_package_t* package, uint8_t** buffer, size_t* size);
+DMUSICPAK_API Error save_memory(Package* package, uint8_t** buffer, size_t* size);
 
 /**
  * @brief Free package and all associated data
  * @param package Package to free
  */
-DMUSICPAK_API void dmusicpak_free(dmusicpak_package_t* package);
+DMUSICPAK_API void free(Package* package);
 
 /**
  * @brief Set metadata for package
@@ -179,7 +218,7 @@ DMUSICPAK_API void dmusicpak_free(dmusicpak_package_t* package);
  * @param metadata Metadata structure (will be copied)
  * @return Error code
  */
-DMUSICPAK_API dmusicpak_error_t dmusicpak_set_metadata(dmusicpak_package_t* package, const dmusicpak_metadata_t* metadata);
+DMUSICPAK_API Error set_metadata(Package* package, const Metadata* metadata);
 
 /**
  * @brief Get metadata from package
@@ -187,7 +226,7 @@ DMUSICPAK_API dmusicpak_error_t dmusicpak_set_metadata(dmusicpak_package_t* pack
  * @param metadata Output metadata structure (must be freed by caller)
  * @return Error code
  */
-DMUSICPAK_API dmusicpak_error_t dmusicpak_get_metadata(dmusicpak_package_t* package, dmusicpak_metadata_t* metadata);
+DMUSICPAK_API Error get_metadata(Package* package, Metadata* metadata);
 
 /**
  * @brief Set lyrics for package
@@ -195,7 +234,7 @@ DMUSICPAK_API dmusicpak_error_t dmusicpak_get_metadata(dmusicpak_package_t* pack
  * @param lyrics Lyrics structure (data will be copied)
  * @return Error code
  */
-DMUSICPAK_API dmusicpak_error_t dmusicpak_set_lyrics(dmusicpak_package_t* package, const dmusicpak_lyrics_t* lyrics);
+DMUSICPAK_API Error set_lyrics(Package* package, const Lyrics* lyrics);
 
 /**
  * @brief Get lyrics from package
@@ -203,7 +242,7 @@ DMUSICPAK_API dmusicpak_error_t dmusicpak_set_lyrics(dmusicpak_package_t* packag
  * @param lyrics Output lyrics structure (data must be freed by caller)
  * @return Error code
  */
-DMUSICPAK_API dmusicpak_error_t dmusicpak_get_lyrics(dmusicpak_package_t* package, dmusicpak_lyrics_t* lyrics);
+DMUSICPAK_API Error get_lyrics(Package* package, Lyrics* lyrics);
 
 /**
  * @brief Set audio data for package
@@ -211,7 +250,7 @@ DMUSICPAK_API dmusicpak_error_t dmusicpak_get_lyrics(dmusicpak_package_t* packag
  * @param audio Audio structure (data will be copied)
  * @return Error code
  */
-DMUSICPAK_API dmusicpak_error_t dmusicpak_set_audio(dmusicpak_package_t* package, const dmusicpak_audio_t* audio);
+DMUSICPAK_API Error set_audio(Package* package, const Audio* audio);
 
 /**
  * @brief Get audio data from package
@@ -219,7 +258,7 @@ DMUSICPAK_API dmusicpak_error_t dmusicpak_set_audio(dmusicpak_package_t* package
  * @param audio Output audio structure (data must be freed by caller)
  * @return Error code
  */
-DMUSICPAK_API dmusicpak_error_t dmusicpak_get_audio(dmusicpak_package_t* package, dmusicpak_audio_t* audio);
+DMUSICPAK_API Error get_audio(Package* package, Audio* audio);
 
 /**
  * @brief Set cover image for package
@@ -227,7 +266,7 @@ DMUSICPAK_API dmusicpak_error_t dmusicpak_get_audio(dmusicpak_package_t* package
  * @param cover Cover structure (data will be copied)
  * @return Error code
  */
-DMUSICPAK_API dmusicpak_error_t dmusicpak_set_cover(dmusicpak_package_t* package, const dmusicpak_cover_t* cover);
+DMUSICPAK_API Error set_cover(Package* package, const Cover* cover);
 
 /**
  * @brief Get cover image from package
@@ -235,7 +274,7 @@ DMUSICPAK_API dmusicpak_error_t dmusicpak_set_cover(dmusicpak_package_t* package
  * @param cover Output cover structure (data must be freed by caller)
  * @return Error code
  */
-DMUSICPAK_API dmusicpak_error_t dmusicpak_get_cover(dmusicpak_package_t* package, dmusicpak_cover_t* cover);
+DMUSICPAK_API Error get_cover(Package* package, Cover* cover);
 
 /**
  * @brief Stream audio data with callback
@@ -244,9 +283,9 @@ DMUSICPAK_API dmusicpak_error_t dmusicpak_get_cover(dmusicpak_package_t* package
  * @param userdata User data passed to callback
  * @return Error code
  */
-DMUSICPAK_API dmusicpak_error_t dmusicpak_stream_audio(
-    dmusicpak_package_t* package,
-    dmusicpak_stream_callback_t callback,
+DMUSICPAK_API Error stream_audio(
+    Package* package,
+    StreamCallback callback,
     void* userdata
 );
 
@@ -258,8 +297,8 @@ DMUSICPAK_API dmusicpak_error_t dmusicpak_stream_audio(
  * @param buffer Output buffer
  * @return Number of bytes read or -1 on error
  */
-DMUSICPAK_API int64_t dmusicpak_get_audio_chunk(
-    dmusicpak_package_t* package,
+DMUSICPAK_API int64_t get_audio_chunk(
+    Package* package,
     size_t offset,
     size_t size,
     uint8_t* buffer
@@ -269,28 +308,28 @@ DMUSICPAK_API int64_t dmusicpak_get_audio_chunk(
  * @brief Free metadata structure
  * @param metadata Metadata to free
  */
-DMUSICPAK_API void dmusicpak_free_metadata(dmusicpak_metadata_t* metadata);
+DMUSICPAK_API void free_metadata(Metadata* metadata);
 
 /**
  * @brief Free lyrics structure
  * @param lyrics Lyrics to free
  */
-DMUSICPAK_API void dmusicpak_free_lyrics(dmusicpak_lyrics_t* lyrics);
+DMUSICPAK_API void free_lyrics(Lyrics* lyrics);
 
 /**
  * @brief Free audio structure
  * @param audio Audio to free
  */
-DMUSICPAK_API void dmusicpak_free_audio(dmusicpak_audio_t* audio);
+DMUSICPAK_API void free_audio(Audio* audio);
 
 /**
  * @brief Free cover structure
  * @param cover Cover to free
  */
-DMUSICPAK_API void dmusicpak_free_cover(dmusicpak_cover_t* cover);
+DMUSICPAK_API void free_cover(Cover* cover);
 
-#ifdef __cplusplus
-}
-#endif
+} // namespace dmusicpak
+
+#endif /* __cplusplus */
 
 #endif /* DMUSICPAK_H */
