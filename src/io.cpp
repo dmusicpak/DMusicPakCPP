@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file io.cpp
  * @brief File I/O operations for DMusicPak format
  */

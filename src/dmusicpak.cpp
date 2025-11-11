@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file dmusicpak.cpp
  * @brief Implementation of DMusicPak library core functions
  */
