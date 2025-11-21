@@ -169,27 +169,47 @@ if (Ask-YesNo "Enable Network Streaming Support (requires libcurl)?" "n") {
     $ENABLE_NETWORK = "ON"
     Print-Selected "Network Streaming: Enabled"
     
-    # Check for libcurl (basic check)
+    # Check for libcurl
     $curlFound = $false
-    $possiblePaths = @(
-        "${env:ProgramFiles}\curl\bin\libcurl.dll",
-        "${env:ProgramFiles(x86)}\curl\bin\libcurl.dll",
-        "$env:USERPROFILE\vcpkg\installed\x64-windows\bin\curl.dll"
-    )
+    $vcpkgPath = "E:/Sources/open_library/vcpkg"
     
-    foreach ($path in $possiblePaths) {
-        if (Test-Path $path) {
-            $curlFound = $true
-            break
+    # Method 1: Check vcpkg package list
+    if (Test-Path "$vcpkgPath\vcpkg.exe") {
+        try {
+            $vcpkgList = & "$vcpkgPath\vcpkg.exe" list 2>$null
+            if ($vcpkgList -match "curl:x64-windows") {
+                $curlFound = $true
+            }
+        } catch {
+            # vcpkg list failed, continue to other checks
         }
     }
     
+    # Method 2: Check common file locations (if vcpkg check didn't find it)
     if (-not $curlFound) {
-        Write-Host "  ⚠ Warning: libcurl may not be installed" -ForegroundColor $WarningColor
-        Write-Host "    Install with vcpkg: vcpkg install curl" -ForegroundColor $WarningColor
-        if (-not (Ask-YesNo "Continue anyway?" "y")) {
-            exit 1
+        $possiblePaths = @(
+            "${env:ProgramFiles}\curl\bin\libcurl.dll",
+            "${env:ProgramFiles(x86)}\curl\bin\libcurl.dll",
+            "$env:USERPROFILE\vcpkg\installed\x64-windows\bin\curl.dll",
+            "$vcpkgPath\installed\x64-windows\bin\curl.dll",
+            "$vcpkgPath\installed\x64-windows\lib\curl.lib"
+        )
+        
+        foreach ($path in $possiblePaths) {
+            if (Test-Path $path) {
+                $curlFound = $true
+                break
+            }
         }
+    }
+    
+    if ($curlFound) {
+        Write-Host "  ✓ libcurl detected via vcpkg" -ForegroundColor $SuccessColor
+    } else {
+        Write-Host "  ⚠ Note: libcurl not detected in common locations" -ForegroundColor $WarningColor
+        Write-Host "    CMake will attempt to find it via vcpkg toolchain" -ForegroundColor $InfoColor
+        Write-Host "    If build fails, install with: vcpkg install curl:x64-windows" -ForegroundColor $InfoColor
+        Write-Host ""
     }
 } else {
     $ENABLE_NETWORK = "OFF"

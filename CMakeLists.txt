@@ -1,4 +1,11 @@
 cmake_minimum_required(VERSION 3.15)
+
+# Set vcpkg toolchain file (must be before project() for proper integration)
+# Can be overridden via command line: -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg.cmake
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    set(CMAKE_TOOLCHAIN_FILE "E:/Sources/open_library/vcpkg/scripts/buildsystems/vcpkg.cmake")
+endif()
+
 project(DMusicPak VERSION 1.0.1 LANGUAGES C CXX)
 
 # Set C++ standard
@@ -26,36 +33,17 @@ set(DMUSICPAK_SOURCES
 
 # Network streaming support (optional)
 if(ENABLE_NETWORK)
-    find_package(CURL QUIET)
-    if(NOT CURL_FOUND)
-        # Try alternative method
-        find_library(CURL_LIBRARIES
-            NAMES curl libcurl
-            PATHS
-                /usr/lib
-                /usr/local/lib
-                /opt/lib
-        )
-        find_path(CURL_INCLUDE_DIRS
-            NAMES curl/curl.h
-            PATHS
-                /usr/include
-                /usr/local/include
-                /opt/include
-        )
-        if(CURL_LIBRARIES AND CURL_INCLUDE_DIRS)
-            set(CURL_FOUND TRUE)
-        endif()
-    endif()
+    # Try to find CURL using modern CMake (vcpkg or system package)
+    # With vcpkg toolchain file, this should automatically find curl if installed
+    find_package(CURL REQUIRED)
     
-    if(CURL_FOUND)
-        list(APPEND DMUSICPAK_SOURCES src/network.cpp)
-        add_definitions(-DDMUSICPAK_ENABLE_NETWORK)
-        message(STATUS "Network streaming enabled (libcurl found)")
-    else()
-        message(WARNING "libcurl not found, network support disabled")
-        set(ENABLE_NETWORK OFF)
-    endif()
+    # If we get here, CURL was found (REQUIRED ensures this)
+    list(APPEND DMUSICPAK_SOURCES src/network.cpp)
+    add_definitions(-DDMUSICPAK_ENABLE_NETWORK)
+    message(STATUS "Network streaming enabled (libcurl found)")
+    
+    # CURL_FOUND is guaranteed to be TRUE when using REQUIRED
+    set(CURL_FOUND TRUE)
 endif()
 
 set(DMUSICPAK_HEADERS
@@ -92,8 +80,14 @@ if(BUILD_SHARED_LIBS)
     
     # Link libcurl if network support is enabled
     if(ENABLE_NETWORK AND CURL_FOUND)
-        target_link_libraries(dmusicpak PRIVATE ${CURL_LIBRARIES})
-        target_include_directories(dmusicpak PRIVATE ${CURL_INCLUDE_DIRS})
+        if(TARGET CURL::libcurl)
+            # Modern CMake: use imported target
+            target_link_libraries(dmusicpak PRIVATE CURL::libcurl)
+        else()
+            # Fallback: use variables
+            target_link_libraries(dmusicpak PRIVATE ${CURL_LIBRARIES})
+            target_include_directories(dmusicpak PRIVATE ${CURL_INCLUDE_DIRS})
+        endif()
     endif()
 
     # Set version information
@@ -123,8 +117,14 @@ else()
     
     # Link libcurl if network support is enabled
     if(ENABLE_NETWORK AND CURL_FOUND)
-        target_link_libraries(dmusicpak PRIVATE ${CURL_LIBRARIES})
-        target_include_directories(dmusicpak PRIVATE ${CURL_INCLUDE_DIRS})
+        if(TARGET CURL::libcurl)
+            # Modern CMake: use imported target
+            target_link_libraries(dmusicpak PRIVATE CURL::libcurl)
+        else()
+            # Fallback: use variables
+            target_link_libraries(dmusicpak PRIVATE ${CURL_LIBRARIES})
+            target_include_directories(dmusicpak PRIVATE ${CURL_INCLUDE_DIRS})
+        endif()
     endif()
 endif()
 

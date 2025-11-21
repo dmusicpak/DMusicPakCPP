@@ -15,6 +15,17 @@
 
 using namespace dmusicpak;
 
+/* Initialize curl library (call once at startup) */
+static bool curl_initialized = false;
+
+/* Helper function to ensure curl is initialized */
+static void ensure_curl_initialized() {
+    if (!curl_initialized) {
+        curl_global_init(CURL_GLOBAL_DEFAULT);
+        curl_initialized = true;
+    }
+}
+
 /* Memory buffer structure for curl write callback */
 struct MemoryBuffer {
     uint8_t* data;
@@ -23,8 +34,8 @@ struct MemoryBuffer {
     size_t offset;  /* For streaming reads */
 };
 
-/* Write callback for curl */
-static size_t curl_write_callback(void* contents, size_t size, size_t nmemb, void* userp) {
+/* Write callback for curl (renamed to avoid conflict with curl.h typedef) */
+static size_t write_callback(void* contents, size_t size, size_t nmemb, void* userp) {
     size_t realsize = size * nmemb;
     MemoryBuffer* mem = (MemoryBuffer*)userp;
     
@@ -59,7 +70,7 @@ static CURL* init_curl_handle(const char* url, uint32_t timeout_ms) {
     
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "DMusicPak/1.0.1");
@@ -115,13 +126,13 @@ Package* dmusicpak::load_url(const char* url, uint32_t timeout_ms) {
     curl_easy_cleanup(curl);
     
     if (res != CURLE_OK) {
-        if (mem.data) free(mem.data);
+        if (mem.data) ::free(mem.data);
         return NULL;
     }
     
     /* Parse downloaded data */
     Package* package = load_memory(mem.data, mem.size);
-    free(mem.data);
+    ::free(mem.data);
     
     return package;
 }
@@ -189,17 +200,6 @@ int64_t dmusicpak::get_audio_chunk_url(
     }
     
     return (int64_t)mem.size;
-}
-
-/* Initialize curl library (call once at startup) */
-static bool curl_initialized = false;
-
-/* Helper function to ensure curl is initialized */
-static void ensure_curl_initialized() {
-    if (!curl_initialized) {
-        curl_global_init(CURL_GLOBAL_DEFAULT);
-        curl_initialized = true;
-    }
 }
 
 /* Note: We rely on the OS to clean up curl on program exit */

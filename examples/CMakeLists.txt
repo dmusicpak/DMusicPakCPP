@@ -17,7 +17,13 @@ if(ENABLE_NETWORK)
     add_executable(example_network example_network.cpp)
     target_link_libraries(example_network PRIVATE dmusicpak)
     if(CURL_FOUND)
-        target_link_libraries(example_network PRIVATE ${CURL_LIBRARIES})
+        if(TARGET CURL::libcurl)
+            # Modern CMake: use imported target
+            target_link_libraries(example_network PRIVATE CURL::libcurl)
+        else()
+            # Fallback: use variables
+            target_link_libraries(example_network PRIVATE ${CURL_LIBRARIES})
+        endif()
     endif()
 endif()
 
