@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
 
     /* First, we need to know the audio offset in the file */
     /* For this example, we'll use the loaded package */
-    Audio audio = {0};
+    Audio audio = {AudioFormat::NONE};
     result = get_audio(package, &audio);
     if (result == Error::OK && audio.size > 0) {
         printf("Audio size: %zu bytes\n", audio.size);

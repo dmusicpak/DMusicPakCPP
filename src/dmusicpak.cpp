@@ -11,7 +11,7 @@
 
 /* File format constants */
 #define DMUSICPAK_MAGIC "DMPK"
-#define DMUSICPAK_VERSION 1
+#define DMUSICPAK_VERSION 2
 
 /* Chunk type identifiers */
 #define CHUNK_METADATA 0x01

@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
     }
 
     /* Read audio */
-    Audio audio = {0};
+    Audio audio = {AudioFormat::NONE};
     result = get_audio(package, &audio);
     if (result == Error::OK) {
         printf("=== AUDIO ===\n");

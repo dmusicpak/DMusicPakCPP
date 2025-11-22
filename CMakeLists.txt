@@ -6,7 +6,7 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     set(CMAKE_TOOLCHAIN_FILE "E:/Sources/open_library/vcpkg/scripts/buildsystems/vcpkg.cmake")
 endif()
 
-project(DMusicPak VERSION 1.0.1 LANGUAGES C CXX)
+project(DMusicPak VERSION 1.1.0 LANGUAGES C CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 11)

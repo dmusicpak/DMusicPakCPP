@@ -82,7 +82,7 @@ int main(int argc, char* argv[]) {
     printf("[OK] Lyrics set successfully\n");
 
     /* Set audio data */
-    Audio audio = {0};
+    Audio audio = {AudioFormat::NONE};
     audio.source_filename = (char*)"example.mp3";
     audio.data = (uint8_t*)SAMPLE_AUDIO;
     audio.size = sizeof(SAMPLE_AUDIO);
