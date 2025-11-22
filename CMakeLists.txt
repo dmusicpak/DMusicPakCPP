@@ -16,6 +16,8 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Options
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+option(BUILD_STATIC_LIBS "Build static libraries" OFF)
+option(BUILD_BOTH_LIBS "Build both shared and static libraries" OFF)
 option(BUILD_EXAMPLES "Build example programs" ON)
 option(BUILD_TESTS "Build test programs" OFF)
 option(ENABLE_NETWORK "Enable network streaming support (requires libcurl)" OFF)
@@ -52,8 +54,14 @@ set(DMUSICPAK_HEADERS
         include/dmusicpak/dmusicpak_c.h
 )
 
+# Determine what to build
+if(BUILD_BOTH_LIBS)
+    set(BUILD_SHARED_LIBS ON)
+    set(BUILD_STATIC_LIBS ON)
+endif()
+
 # Windows DLL version resource
-if(WIN32 AND BUILD_SHARED_LIBS)
+if(WIN32 AND (BUILD_SHARED_LIBS OR BUILD_BOTH_LIBS))
     # Configure version information
     set(DMUSICPAK_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
     set(DMUSICPAK_VERSION_MINOR ${PROJECT_VERSION_MINOR})
@@ -71,26 +79,57 @@ if(WIN32 AND BUILD_SHARED_LIBS)
         @ONLY
     )
     
-    # Add resource file to sources
-    list(APPEND DMUSICPAK_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/dmusicpak.rc)
+    # Add resource file to shared library sources
+    set(DMUSICPAK_SHARED_SOURCES ${DMUSICPAK_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/dmusicpak.rc)
+else()
+    set(DMUSICPAK_SHARED_SOURCES ${DMUSICPAK_SOURCES})
 endif()
 
-# Create library
-if(BUILD_SHARED_LIBS)
-    add_library(dmusicpak SHARED ${DMUSICPAK_SOURCES} ${DMUSICPAK_HEADERS})
-    target_compile_definitions(dmusicpak PRIVATE DMUSICPAK_EXPORTS)
-    
+# Helper function to configure library target
+function(configure_dmusicpak_target target_name is_shared)
     # Link libcurl if network support is enabled
     if(ENABLE_NETWORK AND CURL_FOUND)
         if(TARGET CURL::libcurl)
             # Modern CMake: use imported target
-            target_link_libraries(dmusicpak PRIVATE CURL::libcurl)
+            target_link_libraries(${target_name} PRIVATE CURL::libcurl)
         else()
             # Fallback: use variables
-            target_link_libraries(dmusicpak PRIVATE ${CURL_LIBRARIES})
-            target_include_directories(dmusicpak PRIVATE ${CURL_INCLUDE_DIRS})
+            target_link_libraries(${target_name} PRIVATE ${CURL_LIBRARIES})
+            target_include_directories(${target_name} PRIVATE ${CURL_INCLUDE_DIRS})
         endif()
     endif()
+    
+    # Include directories
+    target_include_directories(${target_name}
+            PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>
+    )
+    
+    # Compiler warnings
+    if(MSVC)
+        target_compile_options(${target_name} PRIVATE /W4)
+    else()
+        target_compile_options(${target_name} PRIVATE -Wall -Wextra -pedantic)
+    endif()
+    
+    # Platform-specific settings
+    if(WIN32)
+        target_compile_definitions(${target_name} PRIVATE _CRT_SECURE_NO_WARNINGS)
+    endif()
+    
+    # Define DMUSICPAK_STATIC for static libraries
+    if(NOT is_shared)
+        target_compile_definitions(${target_name} PUBLIC DMUSICPAK_STATIC)
+    endif()
+endfunction()
+
+# Create shared library
+if(BUILD_SHARED_LIBS OR BUILD_BOTH_LIBS)
+    add_library(dmusicpak SHARED ${DMUSICPAK_SHARED_SOURCES} ${DMUSICPAK_HEADERS})
+    target_compile_definitions(dmusicpak PRIVATE DMUSICPAK_EXPORTS)
+    
+    configure_dmusicpak_target(dmusicpak TRUE)
 
     # Set version information
     set_target_properties(dmusicpak PROPERTIES
@@ -114,40 +153,38 @@ if(BUILD_SHARED_LIBS)
                 ARCHIVE_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}/lib/MinSizeRel"
         )
     endif()
-else()
-    add_library(dmusicpak STATIC ${DMUSICPAK_SOURCES} ${DMUSICPAK_HEADERS})
+endif()
+
+# Create static library
+if(BUILD_BOTH_LIBS)
+    # When building both, use a different target name for static library
+    add_library(dmusicpak_static STATIC ${DMUSICPAK_SOURCES} ${DMUSICPAK_HEADERS})
+    configure_dmusicpak_target(dmusicpak_static FALSE)
     
-    # Link libcurl if network support is enabled
-    if(ENABLE_NETWORK AND CURL_FOUND)
-        if(TARGET CURL::libcurl)
-            # Modern CMake: use imported target
-            target_link_libraries(dmusicpak PRIVATE CURL::libcurl)
-        else()
-            # Fallback: use variables
-            target_link_libraries(dmusicpak PRIVATE ${CURL_LIBRARIES})
-            target_include_directories(dmusicpak PRIVATE ${CURL_INCLUDE_DIRS})
-        endif()
+    # On Windows, use different output name to avoid conflict with DLL import library
+    # On Unix, both can use the same base name (libdmusicpak.so and libdmusicpak.a)
+    if(WIN32)
+        set_target_properties(dmusicpak_static PROPERTIES
+                OUTPUT_NAME "dmusicpak_static"
+                ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+                ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/lib/Debug"
+                ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/lib/Release"
+                ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}/lib/RelWithDebInfo"
+                ARCHIVE_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_BINARY_DIR}/lib/MinSizeRel"
+        )
+    else()
+        # On Unix, static and shared can coexist (libdmusicpak.so and libdmusicpak.a)
+        set_target_properties(dmusicpak_static PROPERTIES
+                OUTPUT_NAME "dmusicpak"
+                ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+        )
     endif()
+elseif(BUILD_STATIC_LIBS OR (NOT BUILD_SHARED_LIBS))
+    # When building only static, use the default name
+    add_library(dmusicpak STATIC ${DMUSICPAK_SOURCES} ${DMUSICPAK_HEADERS})
+    configure_dmusicpak_target(dmusicpak FALSE)
 endif()
 
-# Include directories
-target_include_directories(dmusicpak
-        PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
-)
-
-# Compiler warnings
-if(MSVC)
-    target_compile_options(dmusicpak PRIVATE /W4)
-else()
-    target_compile_options(dmusicpak PRIVATE -Wall -Wextra -pedantic)
-endif()
-
-# Platform-specific settings
-if(WIN32)
-    target_compile_definitions(dmusicpak PRIVATE _CRT_SECURE_NO_WARNINGS)
-endif()
 
 # Build examples
 if(BUILD_EXAMPLES)
@@ -177,13 +214,42 @@ install(DIRECTORY include/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-install(TARGETS dmusicpak
-        EXPORT DMusicPakTargets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+# Install targets
+if(BUILD_BOTH_LIBS)
+    install(TARGETS dmusicpak dmusicpak_static
+            EXPORT DMusicPakTargets
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
+elseif(BUILD_SHARED_LIBS)
+    install(TARGETS dmusicpak
+            EXPORT DMusicPakTargets
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
+elseif(BUILD_STATIC_LIBS)
+    if(TARGET dmusicpak_static)
+        install(TARGETS dmusicpak_static
+                EXPORT DMusicPakTargets
+                LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+                INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        )
+    else()
+        install(TARGETS dmusicpak
+                EXPORT DMusicPakTargets
+                LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+                INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        )
+    endif()
+endif()
 
 # Export configuration
 install(EXPORT DMusicPakTargets
@@ -216,7 +282,15 @@ install(FILES
 message(STATUS "")
 message(STATUS "DMusicPak ${PROJECT_VERSION} Configuration:")
 message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
-message(STATUS "  Shared libs: ${BUILD_SHARED_LIBS}")
+if(BUILD_BOTH_LIBS)
+    message(STATUS "  Libraries: Both shared and static")
+elseif(BUILD_SHARED_LIBS)
+    message(STATUS "  Libraries: Shared only")
+elseif(BUILD_STATIC_LIBS)
+    message(STATUS "  Libraries: Static only")
+else()
+    message(STATUS "  Libraries: Static (default)")
+endif()
 message(STATUS "  Examples: ${BUILD_EXAMPLES}")
 message(STATUS "  Tests: ${BUILD_TESTS}")
 message(STATUS "  Network streaming: ${ENABLE_NETWORK}")

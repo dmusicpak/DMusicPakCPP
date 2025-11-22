@@ -9,6 +9,7 @@
 #include "../include/dmusicpak/dmusicpak.h"
 #include "../include/dmusicpak/dmusicpak_c.h"
 #include <string.h>
+#include <cstdlib>
 
 #ifdef __cplusplus
 extern "C" {
@@ -120,36 +121,36 @@ static void c_cover_from_cpp(const Cover* cpp_cover, dmusicpak_cover_t* c_cover)
 
 /* C API implementations */
 
-const char* dmusicpak_version(void) {
+DMUSICPAK_API const char* dmusicpak_version(void) {
     return dmusicpak::version();
 }
 
-const char* dmusicpak_error_string(dmusicpak_error_t error) {
+DMUSICPAK_API const char* dmusicpak_error_string(dmusicpak_error_t error) {
     return dmusicpak::error_string(cpp_error_from_c(error));
 }
 
-dmusicpak_package_t dmusicpak_create(void) {
+DMUSICPAK_API dmusicpak_package_t dmusicpak_create(void) {
     return reinterpret_cast<dmusicpak_package_t>(dmusicpak::create());
 }
 
-dmusicpak_package_t dmusicpak_load(const char* filename) {
+DMUSICPAK_API dmusicpak_package_t dmusicpak_load(const char* filename) {
     return reinterpret_cast<dmusicpak_package_t>(dmusicpak::load(filename));
 }
 
-dmusicpak_package_t dmusicpak_load_memory(const uint8_t* data, size_t size) {
+DMUSICPAK_API dmusicpak_package_t dmusicpak_load_memory(const uint8_t* data, size_t size) {
     return reinterpret_cast<dmusicpak_package_t>(dmusicpak::load_memory(data, size));
 }
 
 #ifdef DMUSICPAK_ENABLE_NETWORK
-dmusicpak_package_t dmusicpak_load_url(const char* url, uint32_t timeout_ms) {
+DMUSICPAK_API dmusicpak_package_t dmusicpak_load_url(const char* url, uint32_t timeout_ms) {
     return reinterpret_cast<dmusicpak_package_t>(dmusicpak::load_url(url, timeout_ms));
 }
 
-dmusicpak_package_t dmusicpak_load_url_stream(const char* url, uint32_t timeout_ms, size_t chunk_size) {
+DMUSICPAK_API dmusicpak_package_t dmusicpak_load_url_stream(const char* url, uint32_t timeout_ms, size_t chunk_size) {
     return reinterpret_cast<dmusicpak_package_t>(dmusicpak::load_url_stream(url, timeout_ms, chunk_size));
 }
 
-int64_t dmusicpak_get_audio_chunk_url(
+DMUSICPAK_API int64_t dmusicpak_get_audio_chunk_url(
     const char* url,
     size_t offset,
     size_t size,
@@ -160,25 +161,30 @@ int64_t dmusicpak_get_audio_chunk_url(
 }
 #endif /* DMUSICPAK_ENABLE_NETWORK */
 
-dmusicpak_error_t dmusicpak_save(dmusicpak_package_t package, const char* filename) {
+DMUSICPAK_API dmusicpak_error_t dmusicpak_save(dmusicpak_package_t package, const char* filename) {
     Package* pkg = reinterpret_cast<Package*>(package);
     if (!pkg) return DMUSICPAK_ERROR_INVALID_PARAM;
     return c_error_from_cpp(dmusicpak::save(pkg, filename));
 }
 
-dmusicpak_error_t dmusicpak_save_memory(dmusicpak_package_t package, uint8_t** buffer, size_t* size) {
+DMUSICPAK_API dmusicpak_error_t dmusicpak_save_memory(dmusicpak_package_t package, uint8_t** buffer, size_t* size) {
     Package* pkg = reinterpret_cast<Package*>(package);
     if (!pkg) return DMUSICPAK_ERROR_INVALID_PARAM;
     return c_error_from_cpp(dmusicpak::save_memory(pkg, buffer, size));
 }
 
-void dmusicpak_free(dmusicpak_package_t package) {
+DMUSICPAK_API void dmusicpak_free_memory(uint8_t* buffer) {
+    if (!buffer) return;
+    std::free(buffer);
+}
+
+DMUSICPAK_API void dmusicpak_free(dmusicpak_package_t package) {
     if (!package) return;
     Package* pkg = reinterpret_cast<Package*>(package);
     dmusicpak::free(pkg);
 }
 
-dmusicpak_error_t dmusicpak_set_metadata(dmusicpak_package_t package, const dmusicpak_metadata_t* metadata) {
+DMUSICPAK_API dmusicpak_error_t dmusicpak_set_metadata(dmusicpak_package_t package, const dmusicpak_metadata_t* metadata) {
     Package* pkg = reinterpret_cast<Package*>(package);
     if (!pkg || !metadata) return DMUSICPAK_ERROR_INVALID_PARAM;
     
@@ -188,7 +194,7 @@ dmusicpak_error_t dmusicpak_set_metadata(dmusicpak_package_t package, const dmus
     return c_error_from_cpp(result);
 }
 
-dmusicpak_error_t dmusicpak_get_metadata(dmusicpak_package_t package, dmusicpak_metadata_t* metadata) {
+DMUSICPAK_API dmusicpak_error_t dmusicpak_get_metadata(dmusicpak_package_t package, dmusicpak_metadata_t* metadata) {
     Package* pkg = reinterpret_cast<Package*>(package);
     if (!pkg || !metadata) return DMUSICPAK_ERROR_INVALID_PARAM;
     
@@ -200,7 +206,7 @@ dmusicpak_error_t dmusicpak_get_metadata(dmusicpak_package_t package, dmusicpak_
     return c_error_from_cpp(result);
 }
 
-dmusicpak_error_t dmusicpak_set_lyrics(dmusicpak_package_t package, const dmusicpak_lyrics_t* lyrics) {
+DMUSICPAK_API dmusicpak_error_t dmusicpak_set_lyrics(dmusicpak_package_t package, const dmusicpak_lyrics_t* lyrics) {
     Package* pkg = reinterpret_cast<Package*>(package);
     if (!pkg || !lyrics) return DMUSICPAK_ERROR_INVALID_PARAM;
     
@@ -210,7 +216,7 @@ dmusicpak_error_t dmusicpak_set_lyrics(dmusicpak_package_t package, const dmusic
     return c_error_from_cpp(result);
 }
 
-dmusicpak_error_t dmusicpak_get_lyrics(dmusicpak_package_t package, dmusicpak_lyrics_t* lyrics) {
+DMUSICPAK_API dmusicpak_error_t dmusicpak_get_lyrics(dmusicpak_package_t package, dmusicpak_lyrics_t* lyrics) {
     Package* pkg = reinterpret_cast<Package*>(package);
     if (!pkg || !lyrics) return DMUSICPAK_ERROR_INVALID_PARAM;
     
@@ -222,7 +228,7 @@ dmusicpak_error_t dmusicpak_get_lyrics(dmusicpak_package_t package, dmusicpak_ly
     return c_error_from_cpp(result);
 }
 
-dmusicpak_error_t dmusicpak_set_audio(dmusicpak_package_t package, const dmusicpak_audio_t* audio) {
+DMUSICPAK_API dmusicpak_error_t dmusicpak_set_audio(dmusicpak_package_t package, const dmusicpak_audio_t* audio) {
     Package* pkg = reinterpret_cast<Package*>(package);
     if (!pkg || !audio) return DMUSICPAK_ERROR_INVALID_PARAM;
     
@@ -232,7 +238,7 @@ dmusicpak_error_t dmusicpak_set_audio(dmusicpak_package_t package, const dmusicp
     return c_error_from_cpp(result);
 }
 
-dmusicpak_error_t dmusicpak_get_audio(dmusicpak_package_t package, dmusicpak_audio_t* audio) {
+DMUSICPAK_API dmusicpak_error_t dmusicpak_get_audio(dmusicpak_package_t package, dmusicpak_audio_t* audio) {
     Package* pkg = reinterpret_cast<Package*>(package);
     if (!pkg || !audio) return DMUSICPAK_ERROR_INVALID_PARAM;
     
@@ -244,7 +250,7 @@ dmusicpak_error_t dmusicpak_get_audio(dmusicpak_package_t package, dmusicpak_aud
     return c_error_from_cpp(result);
 }
 
-dmusicpak_error_t dmusicpak_set_cover(dmusicpak_package_t package, const dmusicpak_cover_t* cover) {
+DMUSICPAK_API dmusicpak_error_t dmusicpak_set_cover(dmusicpak_package_t package, const dmusicpak_cover_t* cover) {
     Package* pkg = reinterpret_cast<Package*>(package);
     if (!pkg || !cover) return DMUSICPAK_ERROR_INVALID_PARAM;
     
@@ -254,7 +260,7 @@ dmusicpak_error_t dmusicpak_set_cover(dmusicpak_package_t package, const dmusicp
     return c_error_from_cpp(result);
 }
 
-dmusicpak_error_t dmusicpak_get_cover(dmusicpak_package_t package, dmusicpak_cover_t* cover) {
+DMUSICPAK_API dmusicpak_error_t dmusicpak_get_cover(dmusicpak_package_t package, dmusicpak_cover_t* cover) {
     Package* pkg = reinterpret_cast<Package*>(package);
     if (!pkg || !cover) return DMUSICPAK_ERROR_INVALID_PARAM;
     
@@ -266,7 +272,7 @@ dmusicpak_error_t dmusicpak_get_cover(dmusicpak_package_t package, dmusicpak_cov
     return c_error_from_cpp(result);
 }
 
-dmusicpak_error_t dmusicpak_stream_audio(
+DMUSICPAK_API dmusicpak_error_t dmusicpak_stream_audio(
     dmusicpak_package_t package,
     dmusicpak_stream_callback_t callback,
     void* userdata
@@ -279,7 +285,7 @@ dmusicpak_error_t dmusicpak_stream_audio(
     return c_error_from_cpp(result);
 }
 
-int64_t dmusicpak_get_audio_chunk(
+DMUSICPAK_API int64_t dmusicpak_get_audio_chunk(
     dmusicpak_package_t package,
     size_t offset,
     size_t size,
@@ -290,44 +296,44 @@ int64_t dmusicpak_get_audio_chunk(
     return dmusicpak::get_audio_chunk(pkg, offset, size, buffer);
 }
 
-void dmusicpak_free_metadata(dmusicpak_metadata_t* metadata) {
+DMUSICPAK_API void dmusicpak_free_metadata(dmusicpak_metadata_t* metadata) {
     if (!metadata) return;
     
     /* Free all string fields */
-    ::free(metadata->title);
-    ::free(metadata->artist);
-    ::free(metadata->album);
-    ::free(metadata->genre);
-    ::free(metadata->year);
-    ::free(metadata->comment);
+    std::free(metadata->title);
+    std::free(metadata->artist);
+    std::free(metadata->album);
+    std::free(metadata->genre);
+    std::free(metadata->year);
+    std::free(metadata->comment);
     
     memset(metadata, 0, sizeof(dmusicpak_metadata_t));
 }
 
-void dmusicpak_free_lyrics(dmusicpak_lyrics_t* lyrics) {
+DMUSICPAK_API void dmusicpak_free_lyrics(dmusicpak_lyrics_t* lyrics) {
     if (!lyrics) return;
     
     /* Free lyrics data */
-    ::free(lyrics->data);
+    std::free(lyrics->data);
     
     memset(lyrics, 0, sizeof(dmusicpak_lyrics_t));
 }
 
-void dmusicpak_free_audio(dmusicpak_audio_t* audio) {
+DMUSICPAK_API void dmusicpak_free_audio(dmusicpak_audio_t* audio) {
     if (!audio) return;
     
     /* Free audio data and source filename */
-    ::free(audio->source_filename);
-    ::free(audio->data);
+    std::free(audio->source_filename);
+    std::free(audio->data);
     
     memset(audio, 0, sizeof(dmusicpak_audio_t));
 }
 
-void dmusicpak_free_cover(dmusicpak_cover_t* cover) {
+DMUSICPAK_API void dmusicpak_free_cover(dmusicpak_cover_t* cover) {
     if (!cover) return;
     
     /* Free cover image data */
-    ::free(cover->data);
+    std::free(cover->data);
     
     memset(cover, 0, sizeof(dmusicpak_cover_t));
 }

@@ -18,7 +18,10 @@
 #include <stddef.h>
 
 /* Export/Import macros for Windows DLL */
-#ifdef _WIN32
+#ifdef DMUSICPAK_STATIC
+    /* Static library - no DLL import/export needed */
+    #define DMUSICPAK_API
+#elif defined(_WIN32)
     #ifdef DMUSICPAK_EXPORTS
         #define DMUSICPAK_API __declspec(dllexport)
     #else

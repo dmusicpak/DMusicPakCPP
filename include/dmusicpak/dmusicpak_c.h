@@ -14,7 +14,10 @@
 #include <stddef.h>
 
 /* Export/Import macros for Windows DLL */
-#ifdef _WIN32
+#ifdef DMUSICPAK_STATIC
+    /* Static library - no DLL import/export needed */
+    #define DMUSICPAK_API
+#elif defined(_WIN32)
     #ifdef DMUSICPAK_EXPORTS
         #define DMUSICPAK_API __declspec(dllexport)
     #else
@@ -211,6 +214,12 @@ DMUSICPAK_API dmusicpak_error_t dmusicpak_save(dmusicpak_package_t package, cons
  * @return Error code
  */
 DMUSICPAK_API dmusicpak_error_t dmusicpak_save_memory(dmusicpak_package_t package, uint8_t** buffer, size_t* size);
+
+/**
+ * @brief Free memory buffer allocated by dmusicpak_save_memory (C API)
+ * @param buffer Buffer to free (must be allocated by dmusicpak_save_memory)
+ */
+DMUSICPAK_API void dmusicpak_free_memory(uint8_t* buffer);
 
 /**
  * @brief Free package and all associated data (C API)

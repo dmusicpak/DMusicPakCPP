@@ -206,14 +206,29 @@ else
 fi
 echo ""
 
-# Build Shared Libraries
-if ask_yn "Build Shared Libraries (DLL/SO)?" "y"; then
-    BUILD_SHARED_LIBS="ON"
-    print_selected "Shared Libraries: Enabled"
-else
-    BUILD_SHARED_LIBS="OFF"
-    print_selected "Shared Libraries: Disabled (Static)"
-fi
+# Build Libraries
+print_section "Library Type Selection"
+LIBRARY_TYPE=$(select_option "Select Library Type:" "Both (Shared + Static)" "Shared Only (SO/DLL)" "Static Only (LIB/A)")
+case $LIBRARY_TYPE in
+    0)
+        BUILD_BOTH_LIBS="ON"
+        BUILD_SHARED_LIBS="OFF"
+        BUILD_STATIC_LIBS="OFF"
+        print_selected "Library Type: Both (Shared + Static)"
+        ;;
+    1)
+        BUILD_BOTH_LIBS="OFF"
+        BUILD_SHARED_LIBS="ON"
+        BUILD_STATIC_LIBS="OFF"
+        print_selected "Library Type: Shared Only (SO/DLL)"
+        ;;
+    2)
+        BUILD_BOTH_LIBS="OFF"
+        BUILD_SHARED_LIBS="OFF"
+        BUILD_STATIC_LIBS="ON"
+        print_selected "Library Type: Static Only (LIB/A)"
+        ;;
+esac
 echo ""
 
 # Install Prefix (optional)
@@ -229,7 +244,13 @@ echo -e "  ${CYAN}Build Type:${NC}        $BUILD_TYPE"
 echo -e "  ${CYAN}Network Support:${NC}    $ENABLE_NETWORK"
 echo -e "  ${CYAN}Build Examples:${NC}    $BUILD_EXAMPLES"
 echo -e "  ${CYAN}Build Tests:${NC}       $BUILD_TESTS"
-echo -e "  ${CYAN}Shared Libraries:${NC}   $BUILD_SHARED_LIBS"
+if [ "$BUILD_BOTH_LIBS" = "ON" ]; then
+    echo -e "  ${CYAN}Libraries:${NC}         Both (Shared + Static)"
+elif [ "$BUILD_SHARED_LIBS" = "ON" ]; then
+    echo -e "  ${CYAN}Libraries:${NC}         Shared Only (SO/DLL)"
+else
+    echo -e "  ${CYAN}Libraries:${NC}         Static Only (LIB/A)"
+fi
 echo -e "  ${CYAN}Install Prefix:${NC}    $INSTALL_PREFIX"
 echo ""
 
@@ -255,11 +276,19 @@ cd "$BUILD_DIR"
 CMAKE_ARGS=(
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
     -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX"
-    -DBUILD_SHARED_LIBS="$BUILD_SHARED_LIBS"
     -DBUILD_EXAMPLES="$BUILD_EXAMPLES"
     -DBUILD_TESTS="$BUILD_TESTS"
     -DENABLE_NETWORK="$ENABLE_NETWORK"
 )
+
+if [ "$BUILD_BOTH_LIBS" = "ON" ]; then
+    CMAKE_ARGS+=(-DBUILD_BOTH_LIBS=ON)
+else
+    CMAKE_ARGS+=(-DBUILD_SHARED_LIBS="$BUILD_SHARED_LIBS")
+    if [ "$BUILD_STATIC_LIBS" = "ON" ]; then
+        CMAKE_ARGS+=(-DBUILD_STATIC_LIBS=ON)
+    fi
+fi
 
 cmake .. "${CMAKE_ARGS[@]}"
 
@@ -281,12 +310,22 @@ if [ $? -eq 0 ]; then
     print_section "Build Output"
     if [ "$OS" == "Darwin" ]; then
         if [ -f "lib/libdmusicpak.dylib" ]; then
-            echo -e "  ${GREEN}✓${NC} Library: $BUILD_DIR/lib/libdmusicpak.dylib"
+            echo -e "  ${GREEN}✓${NC} Shared Library: $BUILD_DIR/lib/libdmusicpak.dylib"
+        fi
+        if [ -f "lib/libdmusicpak.a" ]; then
+            echo -e "  ${GREEN}✓${NC} Static Library: $BUILD_DIR/lib/libdmusicpak.a"
         fi
     else
         if [ -f "lib/libdmusicpak.so" ]; then
-            echo -e "  ${GREEN}✓${NC} Library: $BUILD_DIR/lib/libdmusicpak.so"
+            echo -e "  ${GREEN}✓${NC} Shared Library: $BUILD_DIR/lib/libdmusicpak.so"
         fi
+        if [ -f "lib/libdmusicpak.a" ]; then
+            echo -e "  ${GREEN}✓${NC} Static Library: $BUILD_DIR/lib/libdmusicpak.a"
+        fi
+    fi
+    
+    if [ "$BUILD_BOTH_LIBS" = "ON" ]; then
+        echo -e "  ${CYAN}✓${NC} Both shared and static libraries built successfully"
     fi
     
     if [ "$BUILD_EXAMPLES" = "ON" ]; then

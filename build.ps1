@@ -237,13 +237,29 @@ if (Ask-YesNo "Build Test Programs?" "n") {
 }
 Write-Host ""
 
-# Build Shared Libraries
-if (Ask-YesNo "Build Shared Libraries (DLL)?" "y") {
-    $BUILD_SHARED_LIBS = "ON"
-    Print-Selected "Shared Libraries: Enabled"
-} else {
-    $BUILD_SHARED_LIBS = "OFF"
-    Print-Selected "Shared Libraries: Disabled (Static)"
+# Build Libraries
+Print-Section "Library Type Selection"
+$libraryTypeOptions = @("Both (Shared + Static)", "Shared Only (DLL)", "Static Only (LIB)")
+$libraryTypeIndex = Select-Option "Select Library Type:" $libraryTypeOptions
+switch ($libraryTypeIndex) {
+    0 {
+        $BUILD_BOTH_LIBS = "ON"
+        $BUILD_SHARED_LIBS = "OFF"
+        $BUILD_STATIC_LIBS = "OFF"
+        Print-Selected "Library Type: Both (Shared + Static)"
+    }
+    1 {
+        $BUILD_BOTH_LIBS = "OFF"
+        $BUILD_SHARED_LIBS = "ON"
+        $BUILD_STATIC_LIBS = "OFF"
+        Print-Selected "Library Type: Shared Only (DLL)"
+    }
+    2 {
+        $BUILD_BOTH_LIBS = "OFF"
+        $BUILD_SHARED_LIBS = "OFF"
+        $BUILD_STATIC_LIBS = "ON"
+        Print-Selected "Library Type: Static Only (LIB)"
+    }
 }
 Write-Host ""
 
@@ -277,7 +293,13 @@ Write-Host "  Build Type:        $BUILD_TYPE"
 Write-Host "  Network Support:   $ENABLE_NETWORK"
 Write-Host "  Build Examples:    $BUILD_EXAMPLES"
 Write-Host "  Build Tests:       $BUILD_TESTS"
-Write-Host "  Shared Libraries:  $BUILD_SHARED_LIBS"
+if ($BUILD_BOTH_LIBS -eq "ON") {
+    Write-Host "  Libraries:         Both (Shared + Static)"
+} elseif ($BUILD_SHARED_LIBS -eq "ON") {
+    Write-Host "  Libraries:         Shared Only (DLL)"
+} else {
+    Write-Host "  Libraries:         Static Only (LIB)"
+}
 Write-Host "  Generator:         $GENERATOR"
 Write-Host "  Install Prefix:    $INSTALL_PREFIX"
 Write-Host ""
@@ -309,11 +331,19 @@ try {
         "-G", $GENERATOR
         "-DCMAKE_BUILD_TYPE=$BUILD_TYPE"
         "-DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX"
-        "-DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS"
         "-DBUILD_EXAMPLES=$BUILD_EXAMPLES"
         "-DBUILD_TESTS=$BUILD_TESTS"
         "-DENABLE_NETWORK=$ENABLE_NETWORK"
     )
+    
+    if ($BUILD_BOTH_LIBS -eq "ON") {
+        $cmakeArgs += "-DBUILD_BOTH_LIBS=ON"
+    } else {
+        $cmakeArgs += "-DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS"
+        if ($BUILD_STATIC_LIBS -eq "ON") {
+            $cmakeArgs += "-DBUILD_STATIC_LIBS=ON"
+        }
+    }
     
     & cmake $cmakeArgs
     
@@ -339,14 +369,33 @@ try {
     Write-Host ""
     
     Print-Section "Build Output"
-    $dllPath = "lib\$BUILD_TYPE\dmusicpak.dll"
-    $libPath = "lib\$BUILD_TYPE\dmusicpak.lib"
+    $dllPath = "bin\$BUILD_TYPE\dmusicpak.dll"
+    $importLibPath = "lib\$BUILD_TYPE\dmusicpak.lib"
     
+    # Check for DLL (shared library)
     if (Test-Path $dllPath) {
         Write-Host "  ✓ DLL: $BuildDir\$dllPath" -ForegroundColor $SuccessColor
     }
-    if (Test-Path $libPath) {
-        Write-Host "  ✓ LIB: $BuildDir\$libPath" -ForegroundColor $SuccessColor
+    
+    # Check for import library (from DLL)
+    if (Test-Path $importLibPath) {
+        Write-Host "  ✓ Import LIB: $BuildDir\$importLibPath" -ForegroundColor $SuccessColor
+    }
+    
+    # Check for static library
+    if ($BUILD_BOTH_LIBS -eq "ON") {
+        # When building both, static lib has _static suffix on Windows
+        $staticLibPath = "lib\$BUILD_TYPE\dmusicpak_static.lib"
+        if (Test-Path $staticLibPath) {
+            Write-Host "  ✓ Static LIB: $BuildDir\$staticLibPath" -ForegroundColor $SuccessColor
+            Write-Host "    (Both shared and static libraries built successfully)" -ForegroundColor $InfoColor
+        }
+    } elseif ($BUILD_STATIC_LIBS -eq "ON" -or $BUILD_SHARED_LIBS -eq "OFF") {
+        # When building only static, it uses the default name
+        $staticLibPath = "lib\$BUILD_TYPE\dmusicpak.lib"
+        if (Test-Path $staticLibPath) {
+            Write-Host "  ✓ Static LIB: $BuildDir\$staticLibPath" -ForegroundColor $SuccessColor
+        }
     }
     
     if ($BUILD_EXAMPLES -eq "ON") {
