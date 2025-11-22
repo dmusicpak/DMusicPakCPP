@@ -28,6 +28,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # Library sources
 set(DMUSICPAK_SOURCES
         src/dmusicpak.cpp
+        src/dmusicpak_c.cpp
         src/io.cpp
 )
 
@@ -48,6 +49,7 @@ endif()
 
 set(DMUSICPAK_HEADERS
         include/dmusicpak/dmusicpak.h
+        include/dmusicpak/dmusicpak_c.h
 )
 
 # Windows DLL version resource
