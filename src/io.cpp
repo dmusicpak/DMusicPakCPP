@@ -210,8 +210,10 @@ Error dmusicpak::save_memory(Package* package, uint8_t** buffer, size_t* size) {
     if (package->has_audio) {
         (*buffer)[offset++] = CHUNK_AUDIO;
         uint32_t filename_len = package->audio.source_filename ? (uint32_t)strlen(package->audio.source_filename) : 0;
-        uint32_t chunk_size = 4 + filename_len + (uint32_t)package->audio.size;
+        uint32_t chunk_size = 4 + 4 + filename_len + (uint32_t)package->audio.size;
         write_uint32_le(*buffer + offset, chunk_size);
+        offset += 4;
+        write_uint32_le(*buffer + offset, (uint32_t)package->audio.format);
         offset += 4;
         offset += write_string(*buffer + offset, package->audio.source_filename);
         memcpy(*buffer + offset, package->audio.data, package->audio.size);
@@ -322,8 +324,9 @@ Package* dmusicpak::load_memory(const uint8_t* data, size_t size) {
                 break;
 
             case CHUNK_AUDIO: {
-                size_t str_offset = 0;
-                str_offset += read_string(data + offset, &package->audio.source_filename);
+                package->audio.format = (AudioFormat)read_uint32_le(data + offset);
+                size_t str_offset = 4;
+                str_offset += read_string(data + offset + str_offset, &package->audio.source_filename);
                 package->audio.size = chunk_size - str_offset;
                 if (package->audio.size > 0) {
                     package->audio.data = (uint8_t*)malloc(package->audio.size);

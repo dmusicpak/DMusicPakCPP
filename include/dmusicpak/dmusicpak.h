@@ -68,6 +68,21 @@ enum class CoverFormat {
     BMP = 4
 };
 
+/* Audio file format types */
+enum class AudioFormat {
+    NONE = 0,
+    MP3 = 1,        /* MPEG Audio Layer III */
+    FLAC = 2,       /* Free Lossless Audio Codec */
+    WAV = 3,        /* Waveform Audio File Format */
+    OGG = 4,        /* Ogg Vorbis */
+    AAC = 5,        /* Advanced Audio Coding */
+    M4A = 6,        /* MPEG-4 Audio */
+    OPUS = 7,       /* Opus audio codec */
+    WMA = 8,        /* Windows Media Audio */
+    APE = 9,        /* Monkey's Audio */
+    DSD = 10        /* Direct Stream Digital */
+};
+
 /* Music metadata structure */
 struct Metadata {
     char* title;           /* Song title */
@@ -91,6 +106,7 @@ struct Lyrics {
 
 /* Audio data structure */
 struct Audio {
+    AudioFormat format;     /* Audio file format */
     char* source_filename; /* Original filename */
     uint8_t* data;
     size_t size;

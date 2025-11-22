@@ -179,6 +179,7 @@ Error dmusicpak::set_audio(Package* package, const Audio* audio) {
 
     free_audio(&package->audio);
 
+    package->audio.format = audio->format;
     package->audio.source_filename = str_dup(audio->source_filename);
     package->audio.size = audio->size;
 
@@ -198,6 +199,7 @@ Error dmusicpak::get_audio(Package* package, Audio* audio) {
 
     memset(audio, 0, sizeof(Audio));
 
+    audio->format = package->audio.format;
     audio->source_filename = str_dup(package->audio.source_filename);
     audio->size = package->audio.size;
 
