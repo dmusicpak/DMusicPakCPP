@@ -73,7 +73,7 @@ static CURL* init_curl_handle(const char* url, uint32_t timeout_ms) {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "DMusicPak/1.0.1");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "DMusicPak/1.1.0");
     
     if (timeout_ms > 0) {
         curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, (long)timeout_ms);

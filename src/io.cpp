@@ -20,19 +20,8 @@ using namespace dmusicpak;
 #define CHUNK_LYRICS   0x02
 #define CHUNK_AUDIO    0x03
 #define CHUNK_COVER    0x04
-
-/* File header structure */
-typedef struct {
-    char magic[4];      /* "DMPK" */
-    uint32_t version;   /* Format version */
-    uint32_t num_chunks;/* Number of data chunks */
-} file_header_t;
-
-/* Chunk header structure */
-typedef struct {
-    uint8_t type;       /* Chunk type */
-    uint32_t size;      /* Chunk data size */
-} chunk_header_t;
+#define FILE_HEADER_SIZE 12
+#define CHUNK_HEADER_SIZE 5
 
 /* Write string to buffer */
 static size_t write_string(uint8_t* buffer, const char* str) {
@@ -50,19 +39,26 @@ static size_t write_string(uint8_t* buffer, const char* str) {
 }
 
 /* Read string from buffer */
-static size_t read_string(const uint8_t* buffer, char** str) {
+static bool read_string(const uint8_t* buffer, size_t available, char** str, size_t* consumed) {
+    *str = NULL;
+    *consumed = 0;
+    if (available < 4) return false;
+
     uint32_t len = read_uint32_le(buffer);
+    if ((size_t)len > available - 4) return false;
+
     if (len == 0) {
-        *str = NULL;
-        return 4;
+        *consumed = 4;
+        return true;
     }
 
     *str = (char*)malloc(len + 1);
-    if (!*str) return 0;
+    if (!*str) return false;
 
     memcpy(*str, buffer + 4, len);
     (*str)[len] = '\0';
-    return 4 + len;
+    *consumed = 4 + (size_t)len;
+    return true;
 }
 
 /* Calculate metadata chunk size */
@@ -102,15 +98,29 @@ static size_t write_metadata_chunk(uint8_t* buffer, const Metadata* metadata) {
 }
 
 /* Read metadata chunk */
-static size_t read_metadata_chunk(const uint8_t* buffer, Metadata* metadata) {
+static bool read_metadata_chunk(
+    const uint8_t* buffer,
+    size_t available,
+    Metadata* metadata,
+    size_t* consumed
+) {
     size_t offset = 0;
+    size_t field_size = 0;
 
-    offset += read_string(buffer + offset, &metadata->title);
-    offset += read_string(buffer + offset, &metadata->artist);
-    offset += read_string(buffer + offset, &metadata->album);
-    offset += read_string(buffer + offset, &metadata->genre);
-    offset += read_string(buffer + offset, &metadata->year);
-    offset += read_string(buffer + offset, &metadata->comment);
+    if (!read_string(buffer + offset, available - offset, &metadata->title, &field_size)) return false;
+    offset += field_size;
+    if (!read_string(buffer + offset, available - offset, &metadata->artist, &field_size)) return false;
+    offset += field_size;
+    if (!read_string(buffer + offset, available - offset, &metadata->album, &field_size)) return false;
+    offset += field_size;
+    if (!read_string(buffer + offset, available - offset, &metadata->genre, &field_size)) return false;
+    offset += field_size;
+    if (!read_string(buffer + offset, available - offset, &metadata->year, &field_size)) return false;
+    offset += field_size;
+    if (!read_string(buffer + offset, available - offset, &metadata->comment, &field_size)) return false;
+    offset += field_size;
+
+    if (available - offset < 14) return false;
 
     metadata->duration_ms = read_uint32_le(buffer + offset);
     offset += 4;
@@ -121,7 +131,14 @@ static size_t read_metadata_chunk(const uint8_t* buffer, Metadata* metadata) {
     metadata->channels = read_uint16_le(buffer + offset);
     offset += 2;
 
-    return offset;
+    *consumed = offset;
+    return true;
+}
+
+static bool add_size_checked(size_t* total, size_t value) {
+    if (value > (size_t)-1 - *total) return false;
+    *total += value;
+    return true;
 }
 
 Error dmusicpak::save(Package* package, const char* filename) {
@@ -147,27 +164,37 @@ Error dmusicpak::save(Package* package, const char* filename) {
 
 Error dmusicpak::save_memory(Package* package, uint8_t** buffer, size_t* size) {
     if (!package || !buffer || !size) return Error::INVALID_PARAM;
+    if (package->has_lyrics && package->lyrics.size > 0 && !package->lyrics.data) return Error::INVALID_PARAM;
+    if (package->has_audio && package->audio.size > 0 && !package->audio.data) return Error::INVALID_PARAM;
+    if (package->has_cover && package->cover.size > 0 && !package->cover.data) return Error::INVALID_PARAM;
 
     /* Calculate total size */
-    size_t total_size = sizeof(file_header_t);
+    size_t total_size = FILE_HEADER_SIZE;
     uint32_t num_chunks = 0;
 
     if (package->has_metadata) {
-        total_size += sizeof(chunk_header_t) + calculate_metadata_size(&package->metadata);
+        size_t chunk_size = calculate_metadata_size(&package->metadata);
+        if (chunk_size > UINT32_MAX) return Error::INVALID_PARAM;
+        if (!add_size_checked(&total_size, CHUNK_HEADER_SIZE + chunk_size)) return Error::INVALID_PARAM;
         num_chunks++;
     }
     if (package->has_lyrics) {
-        total_size += sizeof(chunk_header_t) + 4 + package->lyrics.size;
+        size_t chunk_size = 4 + package->lyrics.size;
+        if (chunk_size > UINT32_MAX) return Error::INVALID_PARAM;
+        if (!add_size_checked(&total_size, CHUNK_HEADER_SIZE + chunk_size)) return Error::INVALID_PARAM;
         num_chunks++;
     }
     if (package->has_audio) {
-        total_size += sizeof(chunk_header_t) + 4 +
-                     (package->audio.source_filename ? strlen(package->audio.source_filename) : 0) +
-                     package->audio.size;
+        size_t filename_len = package->audio.source_filename ? strlen(package->audio.source_filename) : 0;
+        size_t chunk_size = 4 + 4 + filename_len + package->audio.size;
+        if (chunk_size > UINT32_MAX) return Error::INVALID_PARAM;
+        if (!add_size_checked(&total_size, CHUNK_HEADER_SIZE + chunk_size)) return Error::INVALID_PARAM;
         num_chunks++;
     }
     if (package->has_cover) {
-        total_size += sizeof(chunk_header_t) + 4 + 4 + 4 + package->cover.size;
+        size_t chunk_size = 4 + 4 + 4 + package->cover.size;
+        if (chunk_size > UINT32_MAX) return Error::INVALID_PARAM;
+        if (!add_size_checked(&total_size, CHUNK_HEADER_SIZE + chunk_size)) return Error::INVALID_PARAM;
         num_chunks++;
     }
 
@@ -202,8 +229,10 @@ Error dmusicpak::save_memory(Package* package, uint8_t** buffer, size_t* size) {
         offset += 4;
         write_uint32_le(*buffer + offset, (uint32_t)package->lyrics.format);
         offset += 4;
-        memcpy(*buffer + offset, package->lyrics.data, package->lyrics.size);
-        offset += package->lyrics.size;
+        if (package->lyrics.size > 0) {
+            memcpy(*buffer + offset, package->lyrics.data, package->lyrics.size);
+            offset += package->lyrics.size;
+        }
     }
 
     /* Write audio chunk */
@@ -216,8 +245,10 @@ Error dmusicpak::save_memory(Package* package, uint8_t** buffer, size_t* size) {
         write_uint32_le(*buffer + offset, (uint32_t)package->audio.format);
         offset += 4;
         offset += write_string(*buffer + offset, package->audio.source_filename);
-        memcpy(*buffer + offset, package->audio.data, package->audio.size);
-        offset += package->audio.size;
+        if (package->audio.size > 0) {
+            memcpy(*buffer + offset, package->audio.data, package->audio.size);
+            offset += package->audio.size;
+        }
     }
 
     /* Write cover chunk */
@@ -232,8 +263,10 @@ Error dmusicpak::save_memory(Package* package, uint8_t** buffer, size_t* size) {
         offset += 4;
         write_uint32_le(*buffer + offset, package->cover.height);
         offset += 4;
-        memcpy(*buffer + offset, package->cover.data, package->cover.size);
-        offset += package->cover.size;
+        if (package->cover.size > 0) {
+            memcpy(*buffer + offset, package->cover.data, package->cover.size);
+            offset += package->cover.size;
+        }
     }
 
     *size = offset;
@@ -278,7 +311,7 @@ Package* dmusicpak::load(const char* filename) {
 }
 
 Package* dmusicpak::load_memory(const uint8_t* data, size_t size) {
-    if (!data || size < sizeof(file_header_t)) return NULL;
+    if (!data || size < FILE_HEADER_SIZE) return NULL;
 
     /* Verify magic number */
     if (memcmp(data, DMUSICPAK_MAGIC, 4) != 0) return NULL;
@@ -297,59 +330,101 @@ Package* dmusicpak::load_memory(const uint8_t* data, size_t size) {
 
     /* Read chunks */
     for (uint32_t i = 0; i < num_chunks && offset < size; i++) {
-        if (offset + 5 > size) break;
+        if (size - offset < CHUNK_HEADER_SIZE) {
+            free(package);
+            return NULL;
+        }
 
         uint8_t chunk_type = data[offset++];
         uint32_t chunk_size = read_uint32_le(data + offset);
         offset += 4;
 
-        if (offset + chunk_size > size) break;
+        if ((size_t)chunk_size > size - offset) {
+            free(package);
+            return NULL;
+        }
 
         switch (chunk_type) {
-            case CHUNK_METADATA:
-                read_metadata_chunk(data + offset, &package->metadata);
+            case CHUNK_METADATA: {
+                free_metadata(&package->metadata);
+                size_t consumed = 0;
+                if (!read_metadata_chunk(data + offset, chunk_size, &package->metadata, &consumed) ||
+                    consumed != (size_t)chunk_size) {
+                    free(package);
+                    return NULL;
+                }
                 package->has_metadata = 1;
                 break;
+            }
 
             case CHUNK_LYRICS:
+                if (chunk_size < 4) {
+                    free(package);
+                    return NULL;
+                }
+                free_lyrics(&package->lyrics);
                 package->lyrics.format = (LyricFormat)read_uint32_le(data + offset);
                 package->lyrics.size = chunk_size - 4;
                 if (package->lyrics.size > 0) {
                     package->lyrics.data = (uint8_t*)malloc(package->lyrics.size);
-                    if (package->lyrics.data) {
-                        memcpy(package->lyrics.data, data + offset + 4, package->lyrics.size);
-                        package->has_lyrics = 1;
+                    if (!package->lyrics.data) {
+                        free(package);
+                        return NULL;
                     }
+                    memcpy(package->lyrics.data, data + offset + 4, package->lyrics.size);
                 }
+                package->has_lyrics = 1;
                 break;
 
             case CHUNK_AUDIO: {
+                if (chunk_size < 8) {
+                    free(package);
+                    return NULL;
+                }
+                free_audio(&package->audio);
                 package->audio.format = (AudioFormat)read_uint32_le(data + offset);
-                size_t str_offset = 4;
-                str_offset += read_string(data + offset + str_offset, &package->audio.source_filename);
+                size_t str_size = 0;
+                if (!read_string(data + offset + 4, chunk_size - 4, &package->audio.source_filename, &str_size)) {
+                    free(package);
+                    return NULL;
+                }
+                size_t str_offset = 4 + str_size;
+                if (str_offset > chunk_size) {
+                    free(package);
+                    return NULL;
+                }
                 package->audio.size = chunk_size - str_offset;
                 if (package->audio.size > 0) {
                     package->audio.data = (uint8_t*)malloc(package->audio.size);
-                    if (package->audio.data) {
-                        memcpy(package->audio.data, data + offset + str_offset, package->audio.size);
-                        package->has_audio = 1;
+                    if (!package->audio.data) {
+                        free(package);
+                        return NULL;
                     }
+                    memcpy(package->audio.data, data + offset + str_offset, package->audio.size);
                 }
+                package->has_audio = 1;
                 break;
             }
 
             case CHUNK_COVER:
+                if (chunk_size < 12) {
+                    free(package);
+                    return NULL;
+                }
+                free_cover(&package->cover);
                 package->cover.format = (CoverFormat)read_uint32_le(data + offset);
                 package->cover.width = read_uint32_le(data + offset + 4);
                 package->cover.height = read_uint32_le(data + offset + 8);
                 package->cover.size = chunk_size - 12;
                 if (package->cover.size > 0) {
                     package->cover.data = (uint8_t*)malloc(package->cover.size);
-                    if (package->cover.data) {
-                        memcpy(package->cover.data, data + offset + 12, package->cover.size);
-                        package->has_cover = 1;
+                    if (!package->cover.data) {
+                        free(package);
+                        return NULL;
                     }
+                    memcpy(package->cover.data, data + offset + 12, package->cover.size);
                 }
+                package->has_cover = 1;
                 break;
         }
 

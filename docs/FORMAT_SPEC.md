@@ -1,8 +1,8 @@
 # DMusicPak File Format Specification
 
-**Version:** 1.0  
+**Version:** 2.0  
 **Status:** Stable  
-**Last Updated:** 2025-10-25
+**Last Updated:** 2026-03-07
 
 ## Overview
 
@@ -47,14 +47,14 @@ All multi-byte integers are stored in **little-endian** format.
 | Offset | Type | Field | Description |
 |--------|------|-------|-------------|
 | 0x00 | char[4] | magic | Magic number: "DMPK" (0x44 0x4D 0x50 0x4B) |
-| 0x04 | uint32 | version | Format version (currently 1) |
+| 0x04 | uint32 | version | Format version (currently 2) |
 | 0x08 | uint32 | num_chunks | Number of data chunks following |
 
 ### Example
 
 ```
-44 4D 50 4B  01 00 00 00  04 00 00 00
-D  M  P  K   version=1    chunks=4
+44 4D 50 4B  02 00 00 00  04 00 00 00
+D  M  P  K   version=2    chunks=4
 ```
 
 ## Chunk Structure
@@ -144,6 +144,7 @@ Contains the actual audio data.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| format | uint32 | Audio format enum value |
 | source_filename | string | Original audio filename (e.g., "song.mp3") |
 | audio_data | byte[...] | Raw audio file data |
 
@@ -191,7 +192,7 @@ Here's a minimal valid `.dmusicpak` file with all chunks:
 Offset  Hex Data                              Description
 ------  ------------------------------------  ---------------------
 0x0000  44 4D 50 4B                          Magic "DMPK"
-0x0004  01 00 00 00                          Version 1
+0x0004  02 00 00 00                          Version 2
 0x0008  04 00 00 00                          4 chunks
 
         --- Metadata Chunk ---
@@ -217,6 +218,7 @@ Offset  Hex Data                              Description
         --- Audio Chunk ---
         03                                    Type: Audio (0x03)
         XX XX XX XX                          Size
+        01 00 00 00                          Format: MP3
         [source_filename string]
         [audio data bytes]
 
@@ -234,7 +236,7 @@ Offset  Hex Data                              Description
 ### Reading a File
 
 1. Read and verify magic number ("DMPK")
-2. Read version number (must be 1 for this spec)
+2. Read version number (must be 2 for this spec)
 3. Read number of chunks
 4. For each chunk:
    - Read chunk type (1 byte)
@@ -264,7 +266,7 @@ For streaming playback:
 A valid `.dmusicpak` file must:
 
 1. Start with magic bytes "DMPK" (0x44 0x4D 0x50 0x4B)
-2. Have version = 1
+2. Have version = 2
 3. Have num_chunks matching actual chunk count
 4. Each chunk must have:
    - Valid type (0x01-0x04)
@@ -285,7 +287,7 @@ Readers should handle:
 
 ## Future Extensions
 
-### Version 2.0 (Planned)
+### Version 3.0 (Planned)
 
 Potential additions:
 - Compression chunk (0x05)
@@ -347,6 +349,6 @@ For questions about this specification:
 
 ---
 
-**Document Version:** 1.0  
+**Document Version:** 2.0  
 **Copyright:** (c) 2025 DMusicPak Project  
 **License:** CC BY-SA 4.0

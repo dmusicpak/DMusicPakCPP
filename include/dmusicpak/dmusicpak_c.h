@@ -1,7 +1,7 @@
 /**
  * @file dmusicpak_c.h
  * @brief DMusicPak C API - C-compatible interface
- * @version 1.0.1
+ * @version 1.1.0
  *
  * This header provides a C-compatible interface for the DMusicPak library.
  * C programs should include this header instead of dmusicpak.h

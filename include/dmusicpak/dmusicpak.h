@@ -1,7 +1,7 @@
 ﻿/**
  * @file dmusicpak.h
  * @brief DMusicPak - Cross-platform Music Package Library
- * @version 1.0.1
+ * @version 1.1.0
  *
  * A library for creating and reading .dmusicpak files containing:
  * - Music metadata (title, artist, album, etc.)

@@ -3,7 +3,10 @@ cmake_minimum_required(VERSION 3.15)
 # Set vcpkg toolchain file (must be before project() for proper integration)
 # Can be overridden via command line: -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg.cmake
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-    set(CMAKE_TOOLCHAIN_FILE "E:/Sources/open_library/vcpkg/scripts/buildsystems/vcpkg.cmake")
+    if(DEFINED ENV{VCPKG_ROOT} AND EXISTS "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+        set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+            CACHE FILEPATH "Path to vcpkg toolchain file")
+    endif()
 endif()
 
 project(DMusicPak VERSION 1.1.0 LANGUAGES C CXX)
@@ -231,7 +234,7 @@ elseif(BUILD_SHARED_LIBS)
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
             INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
-elseif(BUILD_STATIC_LIBS)
+elseif(BUILD_STATIC_LIBS OR (NOT BUILD_SHARED_LIBS))
     if(TARGET dmusicpak_static)
         install(TARGETS dmusicpak_static
                 EXPORT DMusicPakTargets

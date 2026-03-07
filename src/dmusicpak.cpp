@@ -22,14 +22,21 @@
 using namespace dmusicpak;
 
 /* Helper function to duplicate string */
-static char* str_dup(const char* str) {
+static char* str_dup_checked(const char* str, int* out_oom) {
     if (!str) return NULL;
     size_t len = strlen(str);
     char* dup = (char*)malloc(len + 1);
-    if (dup) {
-        memcpy(dup, str, len + 1);
+    if (!dup) {
+        if (out_oom) *out_oom = 1;
+        return NULL;
     }
+
+    memcpy(dup, str, len + 1);
     return dup;
+}
+
+static char* str_dup(const char* str) {
+    return str_dup_checked(str, NULL);
 }
 
 /* Implement helper functions for endian conversion */
@@ -57,7 +64,7 @@ uint16_t dmusicpak::read_uint16_le(const uint8_t* buffer) {
 }
 
 const char* dmusicpak::version() {
-    return "1.0.1";
+    return "1.1.0";
 }
 
 const char* dmusicpak::error_string(Error error) {
@@ -99,14 +106,21 @@ Error dmusicpak::set_metadata(Package* package, const Metadata* metadata) {
 
     /* Free existing metadata */
     free_metadata(&package->metadata);
+    package->has_metadata = 0;
 
     /* Copy strings */
-    package->metadata.title = str_dup(metadata->title);
-    package->metadata.artist = str_dup(metadata->artist);
-    package->metadata.album = str_dup(metadata->album);
-    package->metadata.genre = str_dup(metadata->genre);
-    package->metadata.year = str_dup(metadata->year);
-    package->metadata.comment = str_dup(metadata->comment);
+    int oom = 0;
+    package->metadata.title = str_dup_checked(metadata->title, &oom);
+    package->metadata.artist = str_dup_checked(metadata->artist, &oom);
+    package->metadata.album = str_dup_checked(metadata->album, &oom);
+    package->metadata.genre = str_dup_checked(metadata->genre, &oom);
+    package->metadata.year = str_dup_checked(metadata->year, &oom);
+    package->metadata.comment = str_dup_checked(metadata->comment, &oom);
+
+    if (oom) {
+        free_metadata(&package->metadata);
+        return Error::MEMORY_ALLOC;
+    }
 
     /* Copy numeric values */
     package->metadata.duration_ms = metadata->duration_ms;
@@ -140,8 +154,10 @@ Error dmusicpak::get_metadata(Package* package, Metadata* metadata) {
 
 Error dmusicpak::set_lyrics(Package* package, const Lyrics* lyrics) {
     if (!package || !lyrics) return Error::INVALID_PARAM;
+    if (lyrics->size > 0 && !lyrics->data) return Error::INVALID_PARAM;
 
     free_lyrics(&package->lyrics);
+    package->has_lyrics = 0;
 
     package->lyrics.format = lyrics->format;
     package->lyrics.size = lyrics->size;
@@ -176,11 +192,18 @@ Error dmusicpak::get_lyrics(Package* package, Lyrics* lyrics) {
 
 Error dmusicpak::set_audio(Package* package, const Audio* audio) {
     if (!package || !audio) return Error::INVALID_PARAM;
+    if (audio->size > 0 && !audio->data) return Error::INVALID_PARAM;
 
     free_audio(&package->audio);
+    package->has_audio = 0;
 
     package->audio.format = audio->format;
-    package->audio.source_filename = str_dup(audio->source_filename);
+    int oom = 0;
+    package->audio.source_filename = str_dup_checked(audio->source_filename, &oom);
+    if (oom) {
+        free_audio(&package->audio);
+        return Error::MEMORY_ALLOC;
+    }
     package->audio.size = audio->size;
 
     if (audio->data && audio->size > 0) {
@@ -214,8 +237,10 @@ Error dmusicpak::get_audio(Package* package, Audio* audio) {
 
 Error dmusicpak::set_cover(Package* package, const Cover* cover) {
     if (!package || !cover) return Error::INVALID_PARAM;
+    if (cover->size > 0 && !cover->data) return Error::INVALID_PARAM;
 
     free_cover(&package->cover);
+    package->has_cover = 0;
 
     package->cover.format = cover->format;
     package->cover.size = cover->size;

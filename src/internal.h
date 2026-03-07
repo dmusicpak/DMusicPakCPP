@@ -1,5 +1,5 @@
 ﻿/**
-* @file internal.h
+ * @file internal.h
  * @brief Internal utility functions for DMusicPak library
  * Not part of public API
  */
