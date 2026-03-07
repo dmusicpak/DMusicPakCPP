@@ -127,6 +127,19 @@ struct Cover {
 /* Main package structure */
 struct Package;
 
+/* Fast probe result for integration with external players/demuxers */
+struct ProbeInfo {
+    uint32_t version;
+    uint32_t num_chunks;
+    int has_metadata;
+    int has_lyrics;
+    int has_audio;
+    int has_cover;
+    AudioFormat audio_format;
+    size_t audio_offset; /* Byte offset of raw audio payload inside .dmusicpak */
+    size_t audio_size;
+};
+
 /* Streaming callback function type */
 using StreamCallback = size_t (*)(
     void* buffer,
@@ -149,6 +162,13 @@ DMUSICPAK_API const char* version();
 DMUSICPAK_API const char* error_string(Error error);
 
 /**
+ * @brief Map audio format to recommended FFmpeg demuxer name
+ * @param format Audio format enum
+ * @return FFmpeg demuxer name (e.g., "mp3"), or NULL if unknown/unsupported
+ */
+DMUSICPAK_API const char* audio_format_ffmpeg_demuxer(AudioFormat format);
+
+/**
  * @brief Create a new empty package
  * @return Pointer to new package or NULL on error
  */
@@ -168,6 +188,38 @@ DMUSICPAK_API Package* load(const char* filename);
  * @return Pointer to loaded package or NULL on error
  */
 DMUSICPAK_API Package* load_memory(const uint8_t* data, size_t size);
+
+/**
+ * @brief Probe package file quickly without loading large payload data
+ * @param filename Path to .dmusicpak file
+ * @param info Output probe info
+ * @return Error code
+ */
+DMUSICPAK_API Error probe(const char* filename, ProbeInfo* info);
+
+/**
+ * @brief Probe package bytes quickly without loading large payload data
+ * @param data Pointer to package data
+ * @param size Size of data
+ * @param info Output probe info
+ * @return Error code
+ */
+DMUSICPAK_API Error probe_memory(const uint8_t* data, size_t size, ProbeInfo* info);
+
+/**
+ * @brief Load package header/metadata only (no large binary payload copies)
+ * @param filename Path to .dmusicpak file
+ * @return Pointer to loaded package or NULL on error
+ */
+DMUSICPAK_API Package* load_header_only(const char* filename);
+
+/**
+ * @brief Load package header/metadata only from memory
+ * @param data Pointer to package data
+ * @param size Size of data
+ * @return Pointer to loaded package or NULL on error
+ */
+DMUSICPAK_API Package* load_memory_header_only(const uint8_t* data, size_t size);
 
 #ifdef DMUSICPAK_ENABLE_NETWORK
 /**
@@ -321,6 +373,21 @@ DMUSICPAK_API int64_t get_audio_chunk(
     size_t offset,
     size_t size,
     uint8_t* buffer
+);
+
+/**
+ * @brief Get audio payload location in original .dmusicpak byte stream
+ * @param package Source package
+ * @param offset Output payload offset in bytes
+ * @param size Output payload size in bytes
+ * @param format Output audio format (can be NULL)
+ * @return Error code
+ */
+DMUSICPAK_API Error get_audio_location(
+    Package* package,
+    size_t* offset,
+    size_t* size,
+    AudioFormat* format
 );
 
 /**

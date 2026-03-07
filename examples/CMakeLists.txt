@@ -12,6 +12,10 @@ target_link_libraries(example_read PRIVATE dmusicpak)
 add_executable(example_stream example_stream.cpp)
 target_link_libraries(example_stream PRIVATE dmusicpak)
 
+# FFmpeg bridge example
+add_executable(example_ffmpeg example_ffmpeg.cpp)
+target_link_libraries(example_ffmpeg PRIVATE dmusicpak)
+
 # Network example (only if network support is enabled)
 if(ENABLE_NETWORK)
     add_executable(example_network example_network.cpp)
@@ -28,7 +32,7 @@ if(ENABLE_NETWORK)
 endif()
 
 # Install examples (optional)
-set(EXAMPLE_TARGETS example_write example_read example_stream)
+set(EXAMPLE_TARGETS example_write example_read example_stream example_ffmpeg)
 if(ENABLE_NETWORK)
     list(APPEND EXAMPLE_TARGETS example_network)
 endif()

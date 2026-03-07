@@ -20,10 +20,12 @@ namespace dmusicpak {
         Lyrics lyrics;
         Audio audio;
         Cover cover;
+        size_t audio_payload_offset;
         int has_metadata;
         int has_lyrics;
         int has_audio;
         int has_cover;
+        int has_audio_location;
     };
 
     /* Little-endian integer writing functions */

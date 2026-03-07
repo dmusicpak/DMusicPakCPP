@@ -12,6 +12,7 @@
 - **Image Formats**: JPEG, PNG, WebP, and BMP cover art support
 - **Streaming Support**: Built-in audio streaming capabilities for network playback
 - **Network Streaming**: Optional HTTP/HTTPS support for loading packages from URLs (requires libcurl)
+- **FFmpeg Bridge**: Probe + pipe-friendly workflow for ffmpeg/ffplay compatibility
 - **Cross-Platform**: Works on Windows, Linux, and macOS
 - **Easy-to-Use API**: Simple C API with C++ examples
 - **Lightweight**: Minimal dependencies (network support optional)
@@ -240,6 +241,10 @@ int64_t dmusicpak_get_audio_chunk(dmusicpak_package_t* package,
                                    size_t size, 
                                    uint8_t* buffer);
 
+// Fast probe / FFmpeg bridge helpers
+dmusicpak_error_t dmusicpak_probe(const char* filename, dmusicpak_probe_info_t* info);
+const char* dmusicpak_audio_format_ffmpeg_demuxer(dmusicpak_audio_format_t format);
+
 #ifdef DMUSICPAK_ENABLE_NETWORK
 // Network streaming (requires libcurl)
 dmusicpak_package_t* dmusicpak_load_url(const char* url, uint32_t timeout_ms);
@@ -290,6 +295,7 @@ The `examples/` directory contains complete working examples:
 - **write_example.cpp**: Creating and saving a package
 - **read_example.cpp**: Loading and reading package contents
 - **stream_example.cpp**: Streaming audio data
+- **example_ffmpeg.cpp**: Pipe embedded audio to ffmpeg/ffplay
 
 Build and run:
 ```bash

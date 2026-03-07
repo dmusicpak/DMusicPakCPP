@@ -120,6 +120,19 @@ typedef struct {
 /* Opaque package handle */
 typedef void* dmusicpak_package_t;
 
+/* Fast probe result for integration with external players/demuxers */
+typedef struct {
+    uint32_t version;
+    uint32_t num_chunks;
+    int has_metadata;
+    int has_lyrics;
+    int has_audio;
+    int has_cover;
+    dmusicpak_audio_format_t audio_format;
+    size_t audio_offset;
+    size_t audio_size;
+} dmusicpak_probe_info_t;
+
 /* Streaming callback function type */
 typedef size_t (*dmusicpak_stream_callback_t)(
     void* buffer,
@@ -142,6 +155,13 @@ DMUSICPAK_API const char* dmusicpak_version(void);
 DMUSICPAK_API const char* dmusicpak_error_string(dmusicpak_error_t error);
 
 /**
+ * @brief Map audio format to recommended FFmpeg demuxer name (C API)
+ * @param format Audio format enum
+ * @return FFmpeg demuxer name (e.g., "mp3"), or NULL if unknown/unsupported
+ */
+DMUSICPAK_API const char* dmusicpak_audio_format_ffmpeg_demuxer(dmusicpak_audio_format_t format);
+
+/**
  * @brief Create a new empty package (C API)
  * @return Package handle or NULL on error
  */
@@ -161,6 +181,38 @@ DMUSICPAK_API dmusicpak_package_t dmusicpak_load(const char* filename);
  * @return Package handle or NULL on error
  */
 DMUSICPAK_API dmusicpak_package_t dmusicpak_load_memory(const uint8_t* data, size_t size);
+
+/**
+ * @brief Probe package file quickly without loading large payload data (C API)
+ * @param filename Path to .dmusicpak file
+ * @param info Output probe info
+ * @return Error code
+ */
+DMUSICPAK_API dmusicpak_error_t dmusicpak_probe(const char* filename, dmusicpak_probe_info_t* info);
+
+/**
+ * @brief Probe package bytes quickly without loading large payload data (C API)
+ * @param data Pointer to package data
+ * @param size Size of data
+ * @param info Output probe info
+ * @return Error code
+ */
+DMUSICPAK_API dmusicpak_error_t dmusicpak_probe_memory(const uint8_t* data, size_t size, dmusicpak_probe_info_t* info);
+
+/**
+ * @brief Load package header/metadata only (C API)
+ * @param filename Path to .dmusicpak file
+ * @return Package handle or NULL on error
+ */
+DMUSICPAK_API dmusicpak_package_t dmusicpak_load_header_only(const char* filename);
+
+/**
+ * @brief Load package header/metadata only from memory (C API)
+ * @param data Pointer to package data
+ * @param size Size of data
+ * @return Package handle or NULL on error
+ */
+DMUSICPAK_API dmusicpak_package_t dmusicpak_load_memory_header_only(const uint8_t* data, size_t size);
 
 #ifdef DMUSICPAK_ENABLE_NETWORK
 /**
@@ -317,6 +369,21 @@ DMUSICPAK_API int64_t dmusicpak_get_audio_chunk(
     size_t offset,
     size_t size,
     uint8_t* buffer
+);
+
+/**
+ * @brief Get audio payload location in original .dmusicpak byte stream (C API)
+ * @param package Package handle
+ * @param offset Output payload offset in bytes
+ * @param size Output payload size in bytes
+ * @param format Output audio format (can be NULL)
+ * @return Error code
+ */
+DMUSICPAK_API dmusicpak_error_t dmusicpak_get_audio_location(
+    dmusicpak_package_t package,
+    size_t* offset,
+    size_t* size,
+    dmusicpak_audio_format_t* format
 );
 
 /**

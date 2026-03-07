@@ -82,6 +82,22 @@ const char* dmusicpak::error_string(Error error) {
     }
 }
 
+const char* dmusicpak::audio_format_ffmpeg_demuxer(AudioFormat format) {
+    switch (format) {
+        case AudioFormat::MP3: return "mp3";
+        case AudioFormat::FLAC: return "flac";
+        case AudioFormat::WAV: return "wav";
+        case AudioFormat::OGG: return "ogg";
+        case AudioFormat::AAC: return "aac";
+        case AudioFormat::M4A: return "mov";
+        case AudioFormat::OPUS: return "opus";
+        case AudioFormat::WMA: return "asf";
+        case AudioFormat::APE: return "ape";
+        case AudioFormat::DSD: return "dsf";
+        default: return NULL;
+    }
+}
+
 Package* dmusicpak::create() {
     Package* package = (Package*)calloc(1, sizeof(Package));
     if (!package) return NULL;
@@ -175,6 +191,7 @@ Error dmusicpak::set_lyrics(Package* package, const Lyrics* lyrics) {
 Error dmusicpak::get_lyrics(Package* package, Lyrics* lyrics) {
     if (!package || !lyrics) return Error::INVALID_PARAM;
     if (!package->has_lyrics) return Error::NOT_SUPPORTED;
+    if (package->lyrics.size > 0 && !package->lyrics.data) return Error::NOT_SUPPORTED;
 
     memset(lyrics, 0, sizeof(Lyrics));
 
@@ -219,6 +236,7 @@ Error dmusicpak::set_audio(Package* package, const Audio* audio) {
 Error dmusicpak::get_audio(Package* package, Audio* audio) {
     if (!package || !audio) return Error::INVALID_PARAM;
     if (!package->has_audio) return Error::NOT_SUPPORTED;
+    if (package->audio.size > 0 && !package->audio.data) return Error::NOT_SUPPORTED;
 
     memset(audio, 0, sizeof(Audio));
 
@@ -260,6 +278,7 @@ Error dmusicpak::set_cover(Package* package, const Cover* cover) {
 Error dmusicpak::get_cover(Package* package, Cover* cover) {
     if (!package || !cover) return Error::INVALID_PARAM;
     if (!package->has_cover) return Error::NOT_SUPPORTED;
+    if (package->cover.size > 0 && !package->cover.data) return Error::NOT_SUPPORTED;
 
     memset(cover, 0, sizeof(Cover));
 
@@ -284,6 +303,7 @@ Error dmusicpak::stream_audio(
 ) {
     if (!package || !callback) return Error::INVALID_PARAM;
     if (!package->has_audio) return Error::NOT_SUPPORTED;
+    if (package->audio.size > 0 && !package->audio.data) return Error::NOT_SUPPORTED;
 
     const size_t chunk_size = 8192; /* 8KB chunks */
     size_t offset = 0;
@@ -311,6 +331,7 @@ int64_t dmusicpak::get_audio_chunk(
 ) {
     if (!package || !buffer) return -1;
     if (!package->has_audio) return -1;
+    if (package->audio.size > 0 && !package->audio.data) return -1;
     if (offset >= package->audio.size) return 0;
 
     size_t to_read = size;
@@ -320,6 +341,21 @@ int64_t dmusicpak::get_audio_chunk(
 
     memcpy(buffer, package->audio.data + offset, to_read);
     return (int64_t)to_read;
+}
+
+Error dmusicpak::get_audio_location(
+    Package* package,
+    size_t* offset,
+    size_t* size,
+    AudioFormat* format
+) {
+    if (!package || !offset || !size) return Error::INVALID_PARAM;
+    if (!package->has_audio || !package->has_audio_location) return Error::NOT_SUPPORTED;
+
+    *offset = package->audio_payload_offset;
+    *size = package->audio.size;
+    if (format) *format = package->audio.format;
+    return Error::OK;
 }
 
 void dmusicpak::free_metadata(Metadata* metadata) {
